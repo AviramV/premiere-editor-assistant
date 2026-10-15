@@ -1,0 +1,17 @@
+import path from 'node:path';
+import {stat,realpath} from 'node:fs/promises';
+import {spawn} from 'node:child_process';
+import {root,environment,exists,executable} from './common.mjs';
+export const tools=['workflow','transcribe','match-takes','assess-takes','audit-coverage','deliver','audio-cleanup','native-label-session','native-camera-session','reconcile-native-labels','recover-parked-reorder','read-project'];
+const [directory,name,...args]=process.argv.slice(2);
+if(!directory||!tools.includes(name))throw new Error(`Usage: run.mjs /absolute/working-directory <${tools.join('|')}> [arguments]`);
+if(!path.isAbsolute(directory))throw new Error('An absolute project working directory is required');
+const cwd=await realpath(directory);
+if(!(await stat(cwd)).isDirectory()||cwd===root||cwd.startsWith(root+path.sep))throw new Error('Use a project working directory outside the installed plugin');
+const env=environment();
+if(!await exists(env.PREMIERE_ASSISTANT_PYTHON))env.PREMIERE_ASSISTANT_PYTHON=executable('python3');
+const script=path.join(root,'workflow/tools',name+(name==='read-project'?'.py':'.mjs'));
+const child=spawn(name==='read-project'?env.PREMIERE_ASSISTANT_PYTHON:process.execPath,[script,...args],{cwd,env,stdio:'inherit'});
+for(const signal of ['SIGINT','SIGTERM'])process.on(signal,()=>child.kill(signal));
+child.on('error',error=>{console.error(error.message);process.exitCode=1;});
+child.on('close',code=>{process.exitCode=code??1;});

@@ -1,0 +1,14 @@
+{
+  "leancoder": {
+    "version": "1.21.0",
+    "commit": "b04121195deb4f20e060a6ff3458751a00836028",
+    "url": "https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.21.0/premiere-pro-mcp-1.21.0.mcpb",
+    "sha256": "7999174bcc403a0ea07adf15a0bda27ffa6630c0df918d547d21b3dd854f6572"
+  },
+  "quadlzzz": {
+    "version": "0.1.0",
+    "commit": "deaf221cf9db15060df2294d9fe7aee1562700f4",
+    "url": "https://codeload.github.com/quadlzzz/premiere-mcp/zip/deaf221cf9db15060df2294d9fe7aee1562700f4",
+    "sha256": "d08eba1266541a1281ce038073f24c8ad3803c166f24487d5037a8d7d2eef964"
+  }
+}

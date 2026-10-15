@@ -1,0 +1,21 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "premiere_cep": {
+      "type": "stdio",
+      "command": "/bin/bash",
+      "args": [
+        "${PLUGIN_ROOT}/scripts/launch.sh",
+        "premiere_cep"
+      ]
+    },
+    "premiere_uxp": {
+      "type": "stdio",
+      "command": "/bin/bash",
+      "args": [
+        "${PLUGIN_ROOT}/scripts/launch.sh",
+        "premiere_uxp"
+      ]
+    }
+  }
+}

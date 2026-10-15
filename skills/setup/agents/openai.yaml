@@ -1,0 +1,4 @@
+interface:
+  display_name: "Set up Premiere Editor Assistant"
+  short_description: "Install and check local Premiere workflow dependencies"
+  default_prompt: "Use $setup to configure Premiere Editor Assistant on this Mac."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Prepare Takes and Selects"
+  short_description: "Create complete, usable editorial sequences in Premiere"
+  default_prompt: "Use $edit-video to prepare Takes and Selects from my footage and storyboard."

@@ -1,0 +1,14 @@
+.DS_Store
+.local/
+dist/
+node_modules/
+__pycache__/
+*.pyc
+.env
+.env.*
+*.prproj
+*.prlock
+*.pem
+*.mp4
+*.mov
+*.wav
