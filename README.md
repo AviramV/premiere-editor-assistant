@@ -4,7 +4,7 @@ A local Codex plugin for Adobe Premiere Pro on macOS. It creates two editable se
 
 ## Install from GitHub
 
-This repository is private. Your GitHub account must have access, and Git must be authenticated on your Mac. For GitHub CLI users, run `gh auth login` and `gh auth setup-git` if needed.
+This repository is public. Anyone can add its plugin marketplace; no GitHub invitation is required.
 
 ```sh
 codex plugin marketplace add AviramV/premiere-editor-assistant
