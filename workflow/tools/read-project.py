@@ -27,6 +27,33 @@ def ref(parent,path,attribute='ObjectRef'):
     table=uids if attribute=='ObjectURef' else objects
     return table[link.get(attribute)]
 
+def component_state(element,seen=()):
+    """Resolve effect/parameter references without saved-object identities.
+
+    Parameter values and keyframes remain intact. Effect Controls selection
+    properties are UI state and do not change rendered or editable effects.
+    """
+    if element is None:
+        return None
+    if element.tag=='ID' or element.tag.startswith('MZ.ComponentChain.Active'):
+        return None
+    attrs={k:v for k,v in element.attrib.items() if k not in ['ObjectID','ObjectUID','ObjectRef','ObjectURef']}
+    result=[element.tag,attrs,(element.text or '').strip(),[]]
+    for child in element:
+        value=component_state(child,seen)
+        if value is not None:
+            result[3].append(value)
+    for key,table in [('ObjectRef',objects),('ObjectURef',uids)]:
+        if key in element.attrib:
+            identity=(key,element.get(key))
+            if identity in seen:
+                raise ValueError('Cyclic effect state cannot be verified')
+            target=table.get(element.get(key))
+            if target is None:
+                raise ValueError('Missing native effect reference')
+            result.append(component_state(target,seen+(identity,)))
+    return result
+
 tracks=[]
 for group_link in sequence.findall('TrackGroups/TrackGroup/Second'):
     group=objects[group_link.get('ObjectRef')]
@@ -43,6 +70,8 @@ for group_link in sequence.findall('TrackGroups/TrackGroup/Second'):
             master=ref(sub,'MasterClip','ObjectURef')
             label=clip.findtext('Clip/Node/Properties/asl.clip.label.name')
             match=re.fullmatch(r'BE\.Prefs\.LabelColors\.(\d+)',label or '')
+            effects=component_state(item.find('ClipTrackItem/ComponentOwner/Components'))
+            effect_fingerprint=hashlib.sha256(json.dumps(effects,sort_keys=True,separators=(',',':')).encode()).hexdigest()
             clips.append({'savedObjectId':item.get('ObjectID'),'sourceMasterUid':master.get('ObjectUID'),
                 'name':sub.findtext('Name'),'sourceName':master.findtext('Name'),
                 'startTicks':item.findtext('ClipTrackItem/TrackItem/Start','0'),
@@ -51,9 +80,10 @@ for group_link in sequence.findall('TrackGroups/TrackGroup/Second'):
                 'labelIndex':int(match.group(1)) if match else None,
                 'nativeMulticam':clip.findtext('Clip/IsMulticam')=='true',
                 'selectedCameraIndex':clip.findtext('Clip/SelectedTrackIndex'),
-                'originalChannelGroup':sub.findtext('OrigChGrp')})
+                'originalChannelGroup':sub.findtext('OrigChGrp'),
+                'effectFingerprint':effect_fingerprint})
         tracks.append({'kind':kind,'index':int(track_link.get('Index')),'clips':clips})
-result={'schemaVersion':1,'projectPath':str(pathlib.Path(args.project).resolve()),
+result={'schemaVersion':2,'projectPath':str(pathlib.Path(args.project).resolve()),
     'projectSha256':hashlib.sha256(blob).hexdigest(),'sequenceId':args.sequence,
     'name':sequence.findtext('Name'),'tracks':tracks}
 output=pathlib.Path(args.output)

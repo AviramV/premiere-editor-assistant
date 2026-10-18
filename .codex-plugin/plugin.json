@@ -1,13 +1,13 @@
 {
   "name": "premiere-editor-assistant",
-  "version": "0.1.0",
-  "description": "A local Premiere Pro editorial workflow with usable Takes, complete Selects, proxy checks and guarded editing.",
+  "version": "0.1.1",
+  "description": "A local Premiere Pro workflow with usable Takes, complete Selects, guarded editing and OMF sound handoff.",
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Premiere Editor Assistant",
     "shortDescription": "Build usable Takes and Selects in Premiere Pro",
-    "longDescription": "Prepare editable, script-aware Takes and Selects with proxy playback, main-voice transcription, shared part colors and verified edit recovery. Local macOS workflow with guided Premiere bridge setup.",
+    "longDescription": "Prepare editable, script-aware Takes and Selects with proxy playback, main-voice transcription, shared part colors and verified edit recovery. Export OMF sound handoffs from separate audio-only copies. Local macOS workflow with guided Premiere bridge setup.",
     "category": "Productivity",
     "capabilities": [
       "Read",
@@ -15,7 +15,8 @@
     ],
     "defaultPrompt": [
       "Set up Premiere Editor Assistant on this Mac.",
-      "Create Takes and Selects from my Premiere sequence and storyboard."
+      "Create Takes and Selects from my Premiere sequence and storyboard.",
+      "Export an OMF sound handoff from my Premiere sequence."
     ]
   },
   "extensions": {

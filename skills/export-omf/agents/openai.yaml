@@ -1,0 +1,4 @@
+interface:
+  display_name: "Export OMF"
+  short_description: "Prepare audio-only copies and export checked OMF files"
+  default_prompt: "Use $export-omf to prepare audio-only copies of my Premiere sequences and export OMF files to my chosen folder."

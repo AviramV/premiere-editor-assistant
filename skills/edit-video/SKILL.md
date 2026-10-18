@@ -15,6 +15,10 @@ Build an inventory of independent recorded parts and usable performances. All re
 
 Deliver exactly two editable sequences: Takes (good usable takes and attempts) and Selects (one selected take per part; Assembly is an accepted alternate name). Use the same native part-color mapping in both. Preserve source timing, multicamera structure and audio channels. Protect the source sequence and edit derived sequences through the guarded coordinator and revision-bound plans. Native labels use Edit → Label and require a working foreground UI; saved-label verification is separate from a planned color map.
 
+Build and prepare Takes first with `deliver config.json execute`. Apply and verify its native part colors, camera choices and audio routing, then run `deliver config.json selects`. This duplicates Takes, removes alternatives and applies the selected boundary trims without a second reorder or color pass. Do not construct Selects independently from the original source. If a selected interval is outside usable Takes, reconcile the inventory before building either output. The second stage checks freshly saved colors and inherited native state and preserves Takes and the original source.
+
 Save before edits, keep one writer, and inspect the execution journal. Never automatically replay an edit after a timeout or uncertain response. Reconcile the actual saved state before continuing. Large native reorders have host restart limits; do not promise unattended completion when those limits are reached.
 
 Verify actual saved native geometry, coverage, colors, audio routing, camera state and proxy attachments. Check rendered previews and save/reopen persistence when delivering finished sequences. Distinguish planned, executed and verified results. Declare remaining listening or native checks rather than marking them passed from automated tests. Keep review exports at proxy resolution; full-resolution output requires a finishing request.
+
+For a requested OMF sound handoff, use the plugin's export-omf skill on the user's chosen sequence. Its audio-only working copies are separate from the Takes/Selects editorial pair; preserve both prepared sequences.

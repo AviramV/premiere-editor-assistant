@@ -1,4 +1,16 @@
-import {locateInstance,digest} from './state.mjs';
+import {locateInstance,digest,predictKeep} from './state.mjs';
+
+// Native labels, multicamera choices, channel groups and effect fingerprints
+// must follow the retained instances, including trims within a performance.
+export function verifySavedDerivation({before,saved,takes,selects,ranges}) {
+  if(before.sequenceId!==takes.id||before.name!==takes.name||saved.sequenceId!==selects.id||saved.name!==selects.name)throw new Error('Wrong native derivation identity');
+  if(before.schemaVersion!==2||saved.schemaVersion!==2||[before,saved].some(s=>s.tracks.some(t=>t.clips.some(c=>!/^[a-f0-9]{64}$/.test(c.effectFingerprint||'')))))throw new Error('Fresh saved effect evidence required for native derivation');
+  const expected=predictKeep({...before,frameTicks:takes.frameTicks,durationTicks:takes.durationTicks},ranges);
+  expected.sequenceId=selects.id;expected.name=selects.name;
+  if(savedNativeRevision(expected)!==savedNativeRevision(saved))throw new Error('Inherited native colors, cameras, channels, effects or source clocks changed');
+  return {sequenceId:selects.id,takesSequenceId:takes.id,projectSha256:saved.projectSha256,
+    verified:saved.tracks.reduce((n,t)=>n+t.clips.length,0)};
+}
 
 export function verifySavedLabels({saved,sequence,targets}) {
   if(saved.sequenceId!==sequence.id||saved.name!==sequence.name) throw new Error('Wrong saved sequence identity');
@@ -17,12 +29,19 @@ export function verifySavedLabels({saved,sequence,targets}) {
 
 export function savedSourceRevision(saved) {
   return digest({sequenceId:saved.sequenceId,name:saved.name,tracks:saved.tracks.map(t=>({kind:t.kind,index:t.index,
-    clips:t.clips.map(({savedObjectId,...c})=>c)}))});
+    clips:t.clips.map(({savedObjectId,effectFingerprint,...c})=>c)}))});
+}
+
+// Keep the older label/camera reconciliation signatures compatible with their
+// saved baselines. New derivations use this stronger, freshly captured state.
+export function savedNativeRevision(saved) {
+  return digest({source:savedSourceRevision(saved),effects:saved.tracks.map(t=>({kind:t.kind,index:t.index,
+    clips:t.clips.map(c=>c.effectFingerprint)}))});
 }
 
 export function savedGeometryRevision(saved) {
   return digest({sequenceId:saved.sequenceId,name:saved.name,tracks:saved.tracks.map(t=>({kind:t.kind,index:t.index,
-    clips:t.clips.map(({savedObjectId,labelIndex,...c})=>c)}))});
+    clips:t.clips.map(({savedObjectId,labelIndex,effectFingerprint,...c})=>c)}))});
 }
 
 // An interrupted UI session can have applied none, some, or all of its colors.

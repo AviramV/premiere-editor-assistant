@@ -11,7 +11,7 @@ Available commands:
 | match-takes | `script.json transcript.json matching.json semantic` or `lexical`; semantic requires the optional Python environment. |
 | assess-takes | `config.json`; source-level audio measurements require `extraction.normalize: false`. |
 | audit-coverage | `config.json`; compares script passages, source placements and recorded performances. |
-| deliver | `config.json plan`, then `config.json execute` once boundaries, coverage and usability are resolved. |
+| deliver | `config.json plan`, then `config.json execute` to create Takes; prepare Takes colors/cameras/audio, then `config.json selects` to derive Selects. |
 | audio-cleanup | `config.json plan` or `execute`; preserves main voice and handles redundant tracks through revision guards. |
 | native-label-session | `config.json`; owns the edit lock while the agent applies each prepared native label group and verifies saved labels. |
 | native-camera-session | `config.json`; explicitly requested camera changes, with native verification. |
@@ -52,7 +52,9 @@ Replace each example value with observed project state and this run’s working 
 
 An inventory records `sourceRevision` (normalized sequence revision), `transcriptRevision`, and `parts`. Each part has `id`, `hook`, `identityEvidence`, `selectedTakeId`, and `takes`. Each take has `id`, `performanceKey`, `sourceRevision`, `firstWord`, `lastWord`, and `usability: {status, reason}`. These are observed/reviewed decisions, not fields to fill with defaults. Consult `workflow/src/editorial/delivery.mjs` and `speech-boundary.mjs` for additional voice revisions and evidence-bound boundary overrides.
 
-`deliver execute` creates the pair but does not by itself finish native color application, audio cleanup, exports or save/reopen acceptance. Continue those checks before calling it a completed delivery. Keep source IDs protected throughout.
+`deliver execute` creates Takes only and writes its identity and the pair revision to `evidenceFile`. Finish Takes native colors, camera choices and audio routing before running `deliver selects` with the same configuration. This duplicates prepared Takes, removes alternatives and trims selected boundaries, clears only the duplicate's inherited markers and adds Selects markers. It performs no Selects reorder or native color application. An optional `takesSequenceId` can use an existing prepared Takes; its geometry must match the current plan. Never change names or prefixes to bypass an uncertain operation.
+
+The `selects` stage reads freshly saved native instances, refuses incomplete or wrong Takes colors, and verifies inherited colors, cameras, audio channel groups, source clocks and effect/keyframe fingerprints. It also checks that Takes and the original source are unchanged. A selected interval outside usable Takes stops planning for inventory reconciliation. A success still leaves actual proxy exports and save/close/reopen acceptance pending; continue those checks before calling the delivery complete. Keep source IDs protected throughout.
 
 ## Transcription configuration
 

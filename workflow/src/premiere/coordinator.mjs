@@ -5,6 +5,8 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { normalizeSequence, contentState, revision, digest, ensureEditable, predictKeep, predictCuts, predictReorder, removalRanges,locateInstance } from './state.mjs';
 import { ticksToSeconds } from '../core/timing.mjs';
 import {PremierePreflightRefusal} from './errors.mjs';
+import {helperPath,pythonPath} from '../core/environment.mjs';
+import {run} from '../core/process.mjs';
 
 export async function atomicJson(filename, value) {
   await mkdir(path.dirname(filename), { recursive: true });
@@ -84,6 +86,28 @@ export class PremiereCoordinator {
       return this.lock();
     }
     return () => rm(filename, { force: true });
+  }
+  async readSavedSequence(sequenceId) {
+    if(!/^[a-zA-Z0-9_.-]{1,128}$/.test(sequenceId||''))throw new Error('Exact sequence identity required for saved evidence');
+    const release=await this.lock();
+    try {
+      if(Object.values(await this.ledger()).some(e=>['dispatched','indeterminate','ui_pending'].includes(e.status)))throw new Error('An uncertain edit blocks saved-state verification until reconciled');
+      const before=await this.inspect(sequenceId);
+      await this.transport.call('save_project');
+      const output=path.resolve(this.directory,'native-evidence',`${sequenceId}.json`);
+      await run(pythonPath(),[helperPath('read-project.py'),'--project',this.projectPath,'--sequence',sequenceId,'--output',output]);
+      const saved=JSON.parse(await readFile(output,'utf8')),after=await this.inspect(sequenceId);
+      if(saved.projectPath!==this.projectPath||saved.sequenceId!==sequenceId||saved.name!==before.name||revision(after)!==revision(before))throw new Error('Saved evidence target or timeline changed during verification');
+      return saved;
+    } finally {await release();}
+  }
+  async clearMarkers({operationId,sequenceId,beforeRevision}) {
+    const before=await this.inspect(sequenceId,{active:true,editable:true});
+    if(revision(before)!==beforeRevision)throw new Error('Stale marker clearing plan');
+    if(!before.markers.length)return {status:'unchanged',observed:before};
+    const expected={...before,markers:[]};
+    return this.mutate({operationId,sequenceId,beforeRevision,expected,dispatch:()=>this.transport.fixed('clearExactSequenceMarkers',{
+      projectPath:this.projectPath,sequenceId,markerBaseline:before.markers})});
   }
   async ledger() {
     try { return JSON.parse(await readFile(path.join(this.directory, 'journal.json'), 'utf8')); }

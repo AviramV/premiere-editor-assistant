@@ -4,6 +4,7 @@ import {compileSections,executeAssembly} from './assembly.mjs';
 import {editorStartFromPreview} from './editor-boundary.mjs';
 import {leadingWordNeedsReview,audioStartFromOnset} from './speech-boundary.mjs';
 import {LABELS} from './organizer.mjs';
+import {projectSelectsRanges} from './selects-from-takes.mjs';
 
 // Delivery consumes an explicit inventory of independent recorded parts. Script
 // retrieval candidates (including cross-part aliases) are not that inventory.
@@ -78,11 +79,13 @@ export function planDelivery({sequence,transcript,placement,inventory,voiceSourc
       takesBoundaryMode,transcriptRevision:transcript.revision,additionalTranscriptRevisions:inventory.additionalTranscriptRevisions||{},inventoryRevision:digest(inventory),order:order.map(p=>p.id),sections,markers,labels,unresolved:[],...compiled,
       planId:digest({policy:DELIVERY_POLICY,source:revision(sequence),transcript:transcript.revision,inventory,kind,extraTailFrames,takesBoundaryMode})};
   }
+  plans.selects.construction={strategy:'duplicate_takes_and_keep',takesPlanId:plans.takes.planId,
+    ranges:projectSelectsRanges(plans.takes,plans.selects)};
   return {policy:DELIVERY_POLICY,plans,revision:digest(plans)};
 }
 
 export async function executeDeliverySequence(adapter,request) {
-  if(!['takes','selects'].includes(request.plan.kind)||request.plan.policyVersion!==DELIVERY_POLICY_VERSION||request.plan.unresolved.length) throw new Error('Exact complete delivery plan required');
+  if(request.plan.kind!=='takes'||request.plan.policyVersion!==DELIVERY_POLICY_VERSION||request.plan.unresolved.length) throw new Error('Exact complete delivery Takes plan required; derive Selects from prepared Takes');
   const result=await executeAssembly(adapter,request);let state=result.state;
   for(let offset=0;offset<request.plan.markers.length;offset+=200) {
     const marked=await adapter.addMarkers({operationId:`${request.prefix}-markers-${offset/200}`,sequenceId:result.sequenceId,beforeRevision:revision(state),markers:request.plan.markers.slice(offset,offset+200)});state=marked.observed;

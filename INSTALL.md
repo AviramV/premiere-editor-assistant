@@ -1,6 +1,6 @@
-# Premiere Editor Assistant 0.1.0
+# Premiere Editor Assistant 0.1.1
 
-A local macOS plugin for editable Takes and Selects. English editorial input is validated; optional local transcription requires Apple Silicon. Premiere 26.3.2 was the original tested host.
+A local macOS plugin for editable Takes and Selects, with a separate OMF sound-handoff skill. English editorial input is validated; optional local transcription requires Apple Silicon. Premiere 26.3.2 was the original tested host.
 
 ## Install the plugin
 
@@ -20,7 +20,9 @@ Use `setup --install-cep` for the CEP panel. It enables Adobe’s unsigned CEP p
 
 Ask the plugin to prepare Takes and Selects, provide the Premiere project/source sequence and storyboard, and choose a project working folder. If proxies are attached, it enables and verifies the proxy toggle. If they are missing, it asks whether you will attach them or want it to attach proxies from a location you provide.
 
-Each project keeps its own inventory, transcript, operation journal and evidence. Shared runtimes default to `~/Library/Application Support/Premiere Editor Assistant/0.1.0`; `PREMIERE_ASSISTANT_DATA` can override this. Custom executables can be provided through `PREMIERE_ASSISTANT_NODE`, `PREMIERE_ASSISTANT_PYTHON`, `PREMIERE_ASSISTANT_FFMPEG` and `PREMIERE_ASSISTANT_FFPROBE`. These are local settings, not values to put in a shared archive.
+Each project keeps its own inventory, transcript, operation journal and evidence. Shared runtimes default to `~/Library/Application Support/Premiere Editor Assistant/0.1.1`; `PREMIERE_ASSISTANT_DATA` can override this. Custom executables can be provided through `PREMIERE_ASSISTANT_NODE`, `PREMIERE_ASSISTANT_PYTHON`, `PREMIERE_ASSISTANT_FFMPEG` and `PREMIERE_ASSISTANT_FFPROBE`. These are local settings, not values to put in a shared archive.
+
+For a sound handoff, ask export-omf to export your chosen sequence to a destination folder. It prepares a separate audio-only copy and defaults to 48 kHz, 24-bit embedded WAV with five-second handles. It uses the existing CEP bridge and Python standard library. Container checks and audio-metadata comparisons do not prove a successful Pro Tools import; live OMF acceptance remains separate.
 
 Footage, project files, credentials, caches and historical evaluation reports are excluded. No external account is configured automatically. See THIRD_PARTY.md for included and downloaded components.
 
