@@ -9,6 +9,28 @@ import {PremierePreflightRefusal} from './errors.mjs';
 
 export const workspace = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
+export class PremiereUxpTransport {
+  async connect() {
+    const sdk = path.join(runtimeRoot, 'quadlzzz/node_modules/@modelcontextprotocol/sdk/dist/esm');
+    const {Client} = await import(pathToFileURL(path.join(sdk, 'client/index.js')));
+    const {StdioClientTransport} = await import(pathToFileURL(path.join(sdk, 'client/stdio.js')));
+    this.client = new Client({name: 'premiere-transcript-import', version: '0.1.0'});
+    this.transport = new StdioClientTransport({command: '/bin/bash',
+      args: [path.join(workspace, 'tools/start-quadlzzz.sh')], env: {...process.env}});
+    await this.client.connect(this.transport);
+    const {tools} = await this.client.listTools();
+    if (!tools.some(tool => tool.name === 'ppro_transcript_import')) {
+      throw new Error('Transcript import bridge is unavailable; update the packaged runtime and reload its UXP panel');
+    }
+    return this;
+  }
+  async call(name, args = {}) {
+    if (name !== 'ppro_transcript_import') throw new Error('Only fixed transcript operations are exposed by this client');
+    return unpack(await this.client.callTool({name, arguments: args}, undefined, {timeout: 60000}));
+  }
+  async close() { await this.client?.close(); }
+}
+
 export function crossBridgeReorderTargets(dump,moves) {
   // Native items carry track strings such as A2. Normalize after spreading
   // their fields so those strings cannot overwrite the numeric track index.

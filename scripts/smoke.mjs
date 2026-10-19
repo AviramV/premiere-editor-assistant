@@ -11,7 +11,7 @@ for(const backend of ['premiere_cep','premiere_uxp']) {
  try {
   await client.connect(new StdioClientTransport({command:'/bin/bash',args:[path.join(root,'scripts/launch.sh'),backend],env:environment()}));
   const {tools}=await client.listTools();
-  const required=backend==='premiere_cep'?['get_project_info','get_full_sequence_info']:['ppro_env','ppro_guarded_reorder'];
+  const required=backend==='premiere_cep'?['get_project_info','get_full_sequence_info']:['ppro_env','ppro_guarded_reorder','ppro_transcript_import'];
   for(const name of required)if(!tools.some(t=>t.name===name))throw new Error(`Packaged ${backend} is missing ${name}`);
   const result={backend,status:'handshake_verified',tools:tools.length};
   if(live) {

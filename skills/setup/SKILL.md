@@ -13,6 +13,6 @@ Use this workflow for the Premiere Editor Assistant plugin. Resolve the plugin r
 6. Open a project in Premiere. Run `doctor` again, then `smoke --live` through the launcher. A tool-list handshake alone does not prove Premiere is connected. Report any missing panel or version limitation precisely. The broker listens only on loopback; the shipped Adobe panel expects port 3001.
 7. Choose a working directory for this project, then use edit-video for Takes/Selects or export-omf for a requested sound handoff. OMF uses the same CEP bridge and standard-library Python helper; it needs no transcription models. Each project keeps its own evidence and journal. Reuse the plugin’s shared runtime across projects.
 
-Runtime data defaults to `~/Library/Application Support/Premiere Editor Assistant/0.1.1` (or the host’s PLUGIN_DATA directory). `PREMIERE_ASSISTANT_DATA` explicitly overrides that location. Package updates must retain project journals and evidence; never clear an uncertain operation to make a retry run.
+Runtime data defaults to `~/Library/Application Support/Premiere Editor Assistant/0.1.2` (or the host’s PLUGIN_DATA directory). `PREMIERE_ASSISTANT_DATA` explicitly overrides that location. Package updates must retain project journals and evidence; never clear an uncertain operation to make a retry run.
 
 Bridge JavaScript dependencies use the public npm registry for this installation only. Set `PREMIERE_ASSISTANT_NPM_REGISTRY` for a managed mirror; setup does not edit global npm settings.

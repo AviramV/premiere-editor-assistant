@@ -5,10 +5,12 @@ import { extractAudio } from '../src/media/audio.mjs';
 import { transcribeWithFallback } from '../src/transcription/pipeline.mjs';
 import { scribe, localWhisper } from '../src/transcription/providers.mjs';
 import { atomicJson } from '../src/premiere/coordinator.mjs';
+import { importExternalTranscript, validateTranscriptTarget } from '../src/transcription/import-premiere.mjs';
 
 const configFile = process.argv[2];
 if (!configFile) throw new Error('Usage: node tools/transcribe.mjs config.json');
 const config = JSON.parse(await readFile(configFile, 'utf8'));
+validateTranscriptTarget(config.premiere);
 const source = await extractAudio(config.extraction);
 await atomicJson(`${source.audioPath}.source.json`, source);
 console.log(JSON.stringify({ phase: 'extracted', ...source }));
@@ -25,3 +27,5 @@ const result = await transcribeWithFallback({ source, directory: config.cacheDir
 await atomicJson(config.output, result);
 console.log(JSON.stringify({ phase: 'transcribed', provider: result.transcript.provider,
   words: result.transcript.words.length, issues: result.transcript.issues.length, cached: result.cached, output: config.output }));
+const imported = await importExternalTranscript({result, source, target: config.premiere, output: config.output});
+console.log(JSON.stringify({phase: 'transcript_imported', ...imported}));

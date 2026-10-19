@@ -32,10 +32,13 @@ export async function run(command,args,{cwd=root,env=environment(),inherit=false
 export async function runtimeReady() {
   const marker=JSON.parse(await readFile(path.join(runtimes,'installation.json'),'utf8'));
   const lock=await readFile(path.join(root,'runtime-lock.json'));
-  const patch=await readFile(path.join(root,'workflow/src/premiere/uxp-reorder.cjs'));
-  if(marker.lockSha256!==hash(lock)||marker.patchSha256!==hash(patch))throw new Error('Runtime version differs from this package; run the packaged setup in a fresh data directory.');
+  if(marker.lockSha256!==hash(lock)||marker.patchSha256!==await bridgePatchHash())throw new Error('Runtime version differs from this package; run the packaged setup in a fresh data directory.');
   for(const [file,expected] of Object.entries(marker.files)) {
     if(hash(await readFile(path.join(runtimes,file)))!==expected)throw new Error(`Installed runtime file changed: ${file}`);
   }
   return marker;
+}
+export async function bridgePatchHash() {
+  const files=['src/premiere/uxp-reorder.cjs','src/premiere/uxp-transcript.cjs','src/transcription/premiere-format.cjs','tools/install-guarded-reorder.mjs'];
+  return hash(Buffer.concat(await Promise.all(files.map(file=>readFile(path.join(root,'workflow',file))))));
 }

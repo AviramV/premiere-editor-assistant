@@ -16,9 +16,15 @@ try {await run(localPython,['-c','import importlib.util; assert all(importlib.ut
 catch {checks.push({name:'local_models_environment',required:false,ok:false,detail:'Optional: run setup --local-models, or use an existing transcript / explicitly configured Scribe.'});}
 const cep=path.join(homedir(),'Library/Application Support/Adobe/CEP/extensions/MCPBridgeCEP/CSXS/manifest.xml');
 checks.push({name:'CEP_panel_present',required:false,ok:await exists(cep)});
-const uxp=path.join(homedir(),'Library/Application Support/Adobe/UXP/Plugins/External/com.premieremcp.agent_0.1.0/guarded-reorder.js');
-let uxpMatches=false;try {uxpMatches=hash(await readFile(uxp))===hash(await readFile(path.join(root,'workflow/src/premiere/uxp-reorder.cjs')));} catch {}
-checks.push({name:'UXP_guarded_panel_present',required:false,ok:uxpMatches});
+const uxp=path.join(homedir(),'Library/Application Support/Adobe/UXP/Plugins/External/com.premieremcp.agent_0.1.0');
+for(const [name,installed,source] of [
+ ['UXP_guarded_panel_present','guarded-reorder.js','src/premiere/uxp-reorder.cjs'],
+ ['UXP_transcript_import_present','import-transcript.js','src/premiere/uxp-transcript.cjs'],
+ ['UXP_transcript_format_present','transcript-format.js','src/transcription/premiere-format.cjs']
+]) {
+ let matches=false;try {matches=hash(await readFile(path.join(uxp,installed)))===hash(await readFile(path.join(root,'workflow',source)));} catch {}
+ checks.push({name,required:false,ok:matches});
+}
 const ready=checks.filter(c=>c.required).every(c=>c.ok);
 console.log(JSON.stringify({status:ready?'dependencies_ready':'setup_needed',dataDirectory:state,checks,livePremiereConnectionVerified:false},null,2));
 if(!ready)process.exitCode=1;

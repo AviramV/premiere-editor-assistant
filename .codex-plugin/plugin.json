@@ -1,13 +1,13 @@
 {
   "name": "premiere-editor-assistant",
-  "version": "0.1.1",
-  "description": "A local Premiere Pro workflow with usable Takes, complete Selects, guarded editing and OMF sound handoff.",
+  "version": "0.1.2",
+  "description": "A local Premiere Pro workflow with usable Takes, complete Selects, native transcript preparation and OMF sound handoff.",
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Premiere Editor Assistant",
     "shortDescription": "Build usable Takes and Selects in Premiere Pro",
-    "longDescription": "Prepare editable, script-aware Takes and Selects with proxy playback, main-voice transcription, shared part colors and verified edit recovery. Export OMF sound handoffs from separate audio-only copies. Local macOS workflow with guided Premiere bridge setup.",
+    "longDescription": "Prepare editable, script-aware Takes and Selects with proxy playback, main-voice transcription imported into Premiere, shared part colors and verified edit recovery. Keep native transcripts ready for later caption creation. Export OMF sound handoffs from separate audio-only copies. Local macOS workflow with guided Premiere bridge setup.",
     "category": "Productivity",
     "capabilities": [
       "Read",

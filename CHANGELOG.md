@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.2
+
+Premiere Editor Assistant 0.1.2 keeps external transcripts available inside Premiere for later native caption creation.
+
+- Import timed words after external transcription, including cache reuse, onto the exact original media item through the fixed UXP bridge.
+- Verify native words/timings and save; reuse matching transcripts, refuse conflicts, and quarantine uncertain responses in the shared journal.
+- Preserve source clocks through edits. Premiere-created transcripts are verified and reused without reimport.
+- Include the live-tested native ProjectItem identity fix, updated setup fingerprints, doctor checks and bridge discovery.
+- Exclude Finder metadata from packages so GitHub installations and release ZIPs contain matching files.
+
+Validation: 158 automated tests; three skills and both portable manifests validated; reproducible 94-file package. Live Premiere 26.3.2 testing imported 54 timed words, verified save/reopen, correctly rebased 26 words after an edit, rejected a conflict and created native captions through Premiere’s UI.
+
+Upgrade: run setup for the 0.1.2 runtime and use the updated UXP panel. Existing transcription configurations require the Premiere project path, observed UXP source-item ID and shared journal directory. Preserve previous runtime data and project journals. Caption generation/styling remains a separate finishing action. Actual multicam/nested delivery transcript coverage, another Mac and native OMF export/DAW import require separate verification.
+
 ## 0.1.1
 
 Combines Selects derived from prepared Takes with a separate OMF sound-handoff workflow.

@@ -1,7 +1,7 @@
 import path from 'node:path';
 import {homedir} from 'node:os';
 import {mkdir,readFile,writeFile,mkdtemp,rename,cp,readdir,rm} from 'node:fs/promises';
-import {root,state,runtimes,hash,run,environment,executable,exists,runtimeReady} from './common.mjs';
+import {root,state,runtimes,hash,run,environment,executable,exists,runtimeReady,bridgePatchHash} from './common.mjs';
 const flags=new Set(process.argv.slice(2));
 if([...flags].some(f=>!['--local-models','--install-cep','--help'].includes(f)))throw new Error('Usage: setup.mjs [--local-models] [--install-cep]');
 if(flags.has('--help')){console.log('Prepare pinned bridges and an installable UXP panel. --local-models adds a Python environment; --install-cep installs the CEP panel. Each option is explicit; no Premiere projects are edited.');process.exit(0);}
@@ -41,8 +41,8 @@ try {
   await cp(path.join(root,'vendor/leancoder/cep-plugin'),path.join(stagedRuntimes,'cep-panel'),{recursive:true});
   await cp(path.join(root,'vendor/leancoder/LICENSE'),path.join(stagedRuntimes,'leancoder-runtime/LICENSE'));
   const files={};
-  for(const file of ['leancoder-runtime/server/dist/index.js','quadlzzz/mcp/server.js','quadlzzz/panel/main.js','quadlzzz/panel/guarded-reorder.js','quadlzzz/panel/manifest.json'])files[file]=hash(await readFile(path.join(stagedRuntimes,file)));
-  await writeFile(path.join(stagedRuntimes,'installation.json'),JSON.stringify({lockSha256:hash(lockText),patchSha256:hash(await readFile(path.join(root,'workflow/src/premiere/uxp-reorder.cjs'))),files},null,2)+'\n');
+  for(const file of ['leancoder-runtime/server/dist/index.js','quadlzzz/mcp/server.js','quadlzzz/panel/main.js','quadlzzz/panel/guarded-reorder.js','quadlzzz/panel/import-transcript.js','quadlzzz/panel/transcript-format.js','quadlzzz/panel/manifest.json'])files[file]=hash(await readFile(path.join(stagedRuntimes,file)));
+  await writeFile(path.join(stagedRuntimes,'installation.json'),JSON.stringify({lockSha256:hash(lockText),patchSha256:await bridgePatchHash(),files},null,2)+'\n');
   await rename(stagedRuntimes,runtimes);
   await rm(staging,{recursive:true});
  }

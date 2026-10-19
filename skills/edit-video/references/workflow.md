@@ -7,7 +7,7 @@ Available commands:
 | Tool | Arguments / purpose |
 | --- | --- |
 | workflow | `inspect config.json output.json` reads a sequence; `keep config.json output.json` performs an explicitly planned, guarded keep operation. |
-| transcribe | `config.json` extracts the selected main-voice channel and uses the explicitly configured providers. |
+| transcribe | `config.json` extracts the selected main-voice channel, transcribes it and imports the result as a native source transcript. |
 | match-takes | `script.json transcript.json matching.json semantic` or `lexical`; semantic requires the optional Python environment. |
 | assess-takes | `config.json`; source-level audio measurements require `extraction.normalize: false`. |
 | audit-coverage | `config.json`; compares script passages, source placements and recorded performances. |
@@ -59,6 +59,26 @@ The `selects` stage reads freshly saved native instances, refuses incomplete or 
 ## Transcription configuration
 
 `transcribe` accepts `extraction` (input proxy, output mono WAV, stream/channel, interval, sample rate and normalization), `providers`, `cacheDirectory` and `output`. Providers are `mlx-whisper`, `existing` with a transcript `path`, or authorized `scribe`. The local provider uses the setup environment and bundled helper; custom `python` and `model` remain configurable. Set `ELEVENLABS_API_KEY` in the calling environment when using Scribe; never put it in distributed examples. The matching planner validates English script JSON with `language: "en"` and nonempty `passages` with unique IDs and text.
+
+External transcription also requires this target, resolved from current Premiere state:
+
+```json
+{
+  "premiere": {
+    "projectPath": "/absolute/project.prproj",
+    "clipId": "observed-uxp-original-media-item-id",
+    "journalDirectory": "/absolute/working-directory/execution"
+  }
+}
+```
+
+Use the UXP project-item ID (for example from `ppro_transcript_probe`); CEP IDs are not interchangeable. The extraction input must be that item's original media or its currently attached proxy, with the same media clock. Nested, merged and multicam source items require mapping to the underlying media first. Normalized word times already contain the extraction offset; do not add it twice or use timeline positions. The bridge checks exact media/proxy paths. Channel selection is established by microphone assessment and extraction, not inferred from the import API.
+
+The command retains the normalized transcript and raw provider cache, writes `<output>.premiere.json` in Adobe's import schema, and calls the packaged `ppro_transcript_import`. Its read-only `mode: "inspect"` checks availability, target identity and existing content. `mode: "import"` refuses conflicting existing transcripts, imports absent ones, verifies timed-word readback and saves the project. Matching transcripts are reused. External cache reuse still runs this step. `<output>.premiere-import.json` and the shared journal record verification. A failure exits unsuccessfully and leaves transcription files available; an uncertain dispatch must be inspected and reconciled before another mutation. Existing transcription configurations must add `premiere`; missing targets fail before audio extraction or paid transcription.
+
+For transcripts already created by Premiere, verify actual timed words in the native source transcript and skip external transcription/import. `hasTranscript` alone is insufficient: Premiere can report a transcript containing only empty segment placeholders. Never infer native provenance from provider name `existing` alone. Before continuing, verify the Text panel and save/reopen persistence; check actual Takes/Selects sequence transcript coverage after editing, especially nesting. The automated receipt proves import readback and a save call, not reopening or caption readiness on every derived sequence.
+
+Adobe documents [transcript JSON import and import actions](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/transcript) from 25.6, with `hasTranscript` from 26.3. The bridge probes actual runtime methods. [Adobe's sample schema](https://github.com/AdobeDocs/uxp-premiere-pro-samples/blob/main/sample-panels/premiere-api/assets/transcript_format_spec.json) defines timed words, segments and speakers. Once the final sequence transcript is verified, an editor can use [Create captions from transcript](https://helpx.adobe.com/in/premiere/desktop/add-text-images/insert-captions/create-captions.html). The current bridge does not expose native caption generation; transcript preparation does not create caption tracks.
 
 ## Acceptance limits
 
