@@ -1,6 +1,6 @@
 {
   "name": "premiere-editor-assistant",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "A local Premiere Pro workflow with usable Takes, complete Selects, native transcript preparation and OMF sound handoff.",
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",

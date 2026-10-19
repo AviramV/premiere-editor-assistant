@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.3
+
+Automated Plugin Publishing is now maintained from a private development source with versioned, reproducible public distribution.
+
+- Validate tests and packaging on feature branches and pull requests.
+- Publish newer versions after they reach main, using a distribution-repository-only GitHub App token.
+- Import the tested artifact, record source provenance, reproduce the ZIP, and verify uploaded assets before publishing the release.
+- Preserve existing releases and support retries of matching interrupted publications.
+- Add development commands for synchronized version preparation and verified local plugin updates.
+
+This release changes distribution tooling and version metadata. Native transcript and editing behavior retain the acceptance evidence from 0.1.2. CI tests do not establish new Premiere host, listening, OMF export or target-DAW acceptance.
+
 ## 0.1.2
 
 Premiere Editor Assistant 0.1.2 keeps external transcripts available inside Premiere for later native caption creation.

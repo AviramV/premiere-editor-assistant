@@ -65,6 +65,8 @@ if '--build' in sys.argv:
             entry.external_attr = 0o100644 << 16
             output.writestr(entry, (ROOT / name).read_bytes(), compress_type=zipfile.ZIP_DEFLATED)
     checksum = hashlib.sha256(archive.read_bytes()).hexdigest()
+    if checksum != manifest['originalArchiveSha256']:
+        raise SystemExit('Rebuilt archive differs from the tested source artifact')
     archive.with_suffix('.zip.sha256').write_text(checksum + '  ' + archive.name + '\n')
     with zipfile.ZipFile(archive) as output:
         assert output.testzip() is None
