@@ -6,6 +6,7 @@ import { clearExactSequenceMarkers, renameExactSequence, ensureProxyPlayback, du
 import {mkdir,copyFile} from 'node:fs/promises';
 import {randomUUID} from 'node:crypto';
 import {PremierePreflightRefusal} from './errors.mjs';
+import {readClipLinks,restoreClipLinks} from './clip-links-host.mjs';
 
 export const workspace = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -66,11 +67,11 @@ export class PremiereTransport {
     if (['execute_extendscript','send_raw_script','evaluate_expression'].includes(name)) throw new Error('Arbitrary host scripting is not exposed by this adapter');
     return unpack(await this.client.callTool({ name, arguments: args }, undefined, { timeout }));
   }
-  async fixed(operation, { projectPath, sequenceId, name, moves, targets, updates, audioStates, emptyAudioTrack, workingProxies, sequenceRename, markerBaseline }) {
+  async fixed(operation, { projectPath, sequenceId, name, moves, targets, updates, audioStates, emptyAudioTrack, workingProxies, sequenceRename, markerBaseline, clipLinks }) {
     if (!this.fixedScripts) throw new Error('Fixed host operations are not enabled for this client');
-    const builders = { clearExactSequenceMarkers, renameExactSequence, ensureProxyPlayback, duplicateNamed, markerRead, reorderClips, selectLabelTargets, updateMarkerText,saveExactProject,setAudioStates,removeEmptyAudioTrack };
+    const builders = { readClipLinks, restoreClipLinks, clearExactSequenceMarkers, renameExactSequence, ensureProxyPlayback, duplicateNamed, markerRead, reorderClips, selectLabelTargets, updateMarkerText,saveExactProject,setAudioStates,removeEmptyAudioTrack };
     if (!Object.hasOwn(builders,operation)) throw new Error('Unknown fixed host operation');
-    const values={clearExactSequenceMarkers:markerBaseline,renameExactSequence:sequenceRename,ensureProxyPlayback:workingProxies,duplicateNamed:name,reorderClips:moves,selectLabelTargets:targets,updateMarkerText:updates,setAudioStates:audioStates,removeEmptyAudioTrack:emptyAudioTrack};
+    const values={restoreClipLinks:clipLinks,clearExactSequenceMarkers:markerBaseline,renameExactSequence:sequenceRename,ensureProxyPlayback:workingProxies,duplicateNamed:name,reorderClips:moves,selectLabelTargets:targets,updateMarkerText:updates,setAudioStates:audioStates,removeEmptyAudioTrack:emptyAudioTrack};
     const code=builders[operation](projectPath,sequenceId,values[operation]);
     return unpack(await this.client.callTool({ name:'execute_extendscript',arguments:{code} },undefined,{timeout:60000}));
   }

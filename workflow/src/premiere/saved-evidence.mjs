@@ -1,4 +1,5 @@
 import {locateInstance,digest,predictKeep} from './state.mjs';
+import {projectClipLinks,verifyClipLinks} from './clip-links.mjs';
 
 // Native labels, multicamera choices, channel groups and effect fingerprints
 // must follow the retained instances, including trims within a performance.
@@ -7,6 +8,10 @@ export function verifySavedDerivation({before,saved,takes,selects,ranges}) {
   if(before.schemaVersion!==2||saved.schemaVersion!==2||[before,saved].some(s=>s.tracks.some(t=>t.clips.some(c=>!/^[a-f0-9]{64}$/.test(c.effectFingerprint||'')))))throw new Error('Fresh saved effect evidence required for native derivation');
   const expected=predictKeep({...before,frameTicks:takes.frameTicks,durationTicks:takes.durationTicks},ranges);
   expected.sequenceId=selects.id;expected.name=selects.name;
+  if(before.clipLinks || saved.clipLinks) {
+    expected.clipLinks=projectClipLinks(takes,selects,before.clipLinks,{kind:'keep',ranges});
+    verifyClipLinks(selects,expected.clipLinks,saved.clipLinks);
+  }
   if(savedNativeRevision(expected)!==savedNativeRevision(saved))throw new Error('Inherited native colors, cameras, channels, effects or source clocks changed');
   return {sequenceId:selects.id,takesSequenceId:takes.id,projectSha256:saved.projectSha256,
     verified:saved.tracks.reduce((n,t)=>n+t.clips.length,0)};
@@ -35,7 +40,7 @@ export function savedSourceRevision(saved) {
 // Keep the older label/camera reconciliation signatures compatible with their
 // saved baselines. New derivations use this stronger, freshly captured state.
 export function savedNativeRevision(saved) {
-  return digest({source:savedSourceRevision(saved),effects:saved.tracks.map(t=>({kind:t.kind,index:t.index,
+  return digest({source:savedSourceRevision(saved),clipLinks:saved.clipLinks,effects:saved.tracks.map(t=>({kind:t.kind,index:t.index,
     clips:t.clips.map(c=>c.effectFingerprint)}))});
 }
 

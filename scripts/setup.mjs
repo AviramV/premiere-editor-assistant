@@ -1,68 +1,60 @@
 import path from 'node:path';
 import {homedir} from 'node:os';
-import {mkdir,readFile,writeFile,mkdtemp,rename,cp,readdir,rm} from 'node:fs/promises';
-import {root,state,runtimes,hash,run,environment,executable,exists,runtimeReady,bridgePatchHash} from './common.mjs';
+import {mkdir} from 'node:fs/promises';
+import {root,state,runtimes,run,environment,executable,runtimeReady,bridgePatchHash,observeSetupProcesses} from './common.mjs';
+import {acquireSetupLock,createReport,redact} from './setup-recovery.mjs';
+import {provisionRuntime,prepareInstaller,installCep,localModels} from './setup-runtime.mjs';
+
 const flags=new Set(process.argv.slice(2));
 if([...flags].some(f=>!['--local-models','--install-cep','--help'].includes(f)))throw new Error('Usage: setup.mjs [--local-models] [--install-cep]');
-if(flags.has('--help')){console.log('Prepare pinned bridges and an installable UXP panel. --local-models adds a Python environment; --install-cep installs the CEP panel. Each option is explicit; no Premiere projects are edited.');process.exit(0);}
-if(process.platform!=='darwin')throw new Error('This release supports macOS. Windows needs a separately validated adapter.');
-if(Number(process.versions.node.split('.')[0])<22)throw new Error('Node.js 22+ is required');
-const python=process.env.PREMIERE_ASSISTANT_PYTHON || executable('python3');
-await run(python,['-c','import sys; assert sys.version_info >= (3,9), "Python 3.9+ required"']);
-await mkdir(state,{recursive:true});
-const lockDirectory=path.join(state,'setup.lock');
-try {await mkdir(lockDirectory);} catch {throw new Error(`Another setup may be active. Inspect ${lockDirectory} before retrying.`);}
+if(flags.has('--help')){console.log('Prepare pinned bridges and an installable UXP panel with bounded network retries and verified resume. --local-models optionally prepares local Whisper; --install-cep installs the CEP panel. Existing Premiere-native transcripts and authorized ElevenLabs (Scribe) are alternatives. No Premiere projects are edited.');process.exit(0);}
+const quote=value=>"'"+value.replaceAll("'","'\\''")+"'";
+const retryEnvironment=`PREMIERE_ASSISTANT_DATA=${quote(state)} PREMIERE_ASSISTANT_NODE=${quote(process.execPath)}`+['PREMIERE_ASSISTANT_CONFIG','PREMIERE_ASSISTANT_PYTHON'].filter(name=>process.env[name]).map(name=>` ${name}=${quote(process.env[name])}`).join('');
+const retryCommand=`${retryEnvironment} /bin/bash ${quote(path.join(root,'scripts/launch.sh'))} setup${flags.has('--install-cep')?' --install-cep':''}${flags.has('--local-models')?' --local-models':''}`;
+let lock,report,result;
 try {
- if(await exists(runtimes)) {
-  await runtimeReady();console.error('Pinned bridge runtime is already installed and verified.');
- } else {
-  const staging=await mkdtemp(path.join(state,'setup-'));
-  const lockText=await readFile(path.join(root,'runtime-lock.json'));
-  const pins=JSON.parse(lockText);
-  const stagedRuntimes=path.join(staging,'integrations');await mkdir(stagedRuntimes);
-  for(const [name,pin] of Object.entries(pins)) {
-   console.error(`Downloading pinned ${name} ${pin.version}…`);
-   const response=await fetch(pin.url,{signal:AbortSignal.timeout(180000)});
-   if(!response.ok)throw new Error(`${name} download failed: HTTP ${response.status}`);
-   const bytes=Buffer.from(await response.arrayBuffer());
-   if(hash(bytes)!==pin.sha256)throw new Error(`${name} checksum mismatch; nothing installed`);
-   const archive=path.join(staging,`${name}.zip`);await writeFile(archive,bytes);
-   await run(python,[path.join(root,'scripts/safe-extract.py'),archive,path.join(stagedRuntimes,name==='leancoder'?'leancoder-runtime':'quadlzzz'),name==='leancoder'?'0':'1']);
-  }
-  console.error('Installing locked bridge dependencies…');
-  await run(executable('npm'),['ci','--ignore-scripts','--legacy-peer-deps','--omit=dev','--no-audit','--no-fund','--registry',process.env.PREMIERE_ASSISTANT_NPM_REGISTRY || 'https://registry.npmjs.org','--fetch-retries=1','--fetch-timeout=60000'],{cwd:path.join(stagedRuntimes,'quadlzzz'),timeout:600000});
-  await run(process.execPath,[path.join(root,'workflow/tools/install-guarded-reorder.mjs')],{env:{...environment(),PREMIERE_ASSISTANT_RUNTIME:stagedRuntimes}});
-  const panel=path.join(stagedRuntimes,'quadlzzz/panel');
-  const manifestFile=path.join(panel,'manifest.json');
-  const manifest=JSON.parse(await readFile(manifestFile,'utf8'));
-  if(manifest.id!=='com.premieremcp.agent')throw new Error('Unexpected UXP panel identity');
-  if(Array.isArray(manifest.host))manifest.host=manifest.host[0];
-  await writeFile(manifestFile,JSON.stringify(manifest,null,2)+'\n');
-  await cp(path.join(root,'vendor/leancoder/cep-plugin'),path.join(stagedRuntimes,'cep-panel'),{recursive:true});
-  await cp(path.join(root,'vendor/leancoder/LICENSE'),path.join(stagedRuntimes,'leancoder-runtime/LICENSE'));
-  const files={};
-  for(const file of ['leancoder-runtime/server/dist/index.js','quadlzzz/mcp/server.js','quadlzzz/panel/main.js','quadlzzz/panel/guarded-reorder.js','quadlzzz/panel/import-transcript.js','quadlzzz/panel/transcript-format.js','quadlzzz/panel/manifest.json'])files[file]=hash(await readFile(path.join(stagedRuntimes,file)));
-  await writeFile(path.join(stagedRuntimes,'installation.json'),JSON.stringify({lockSha256:hash(lockText),patchSha256:await bridgePatchHash(),files},null,2)+'\n');
-  await rename(stagedRuntimes,runtimes);
-  await rm(staging,{recursive:true});
- }
- const ccx=path.join(state,'premiere-editor-assistant-panel.ccx');
- await run(python,['-c','import pathlib,sys,zipfile; root=pathlib.Path(sys.argv[1]); z=zipfile.ZipFile(sys.argv[2],"w",zipfile.ZIP_DEFLATED); [z.write(p,p.relative_to(root)) for p in sorted(root.rglob("*")) if p.is_file()]; z.close()',path.join(runtimes,'quadlzzz/panel'),ccx]);
+ if(process.platform!=='darwin')throw new Error('This release supports macOS. Windows needs a separately validated adapter.');
+ if(Number(process.versions.node.split('.')[0])<22)throw new Error('Node.js 22+ is required');
+ await mkdir(state,{recursive:true});
+ lock=await acquireSetupLock(state);observeSetupProcesses(lock);
+ report=await createReport(state,retryCommand);
+ const python=process.env.PREMIERE_ASSISTANT_PYTHON||executable('python3');
+ await report.step('python_requirement',()=>run(python,['-c','import sys; assert sys.version_info >= (3,9), "Python 3.9+ required"']),
+  'Use configure --python with an existing Python 3.9+ executable, or install a compatible Python through your package manager or a verified official installer.');
+ await provisionRuntime({root,state,runtimes,python,npm:executable('npm'),run,env:environment(),checkRuntime:runtimeReady,patchSha256:await bridgePatchHash(),report});
+ let installer,installerWarning;
+ try{installer=await prepareInstaller({state,runtimes,python,run,report});}
+ catch(error){installerWarning={stage:error.stage,attempts:error.attempts||1,detail:redact(error.message),fallback:error.fallback};await report.event('fallback_available',installerWarning);}
+ if(flags.has('--install-cep'))await installCep({root,state,target:path.join(homedir(),'Library/Application Support/Adobe/CEP/extensions/MCPBridgeCEP'),run,report});
+ let models,modelWarning;
  if(flags.has('--local-models')) {
-  if(process.arch!=='arm64')throw new Error('Local MLX transcription requires Apple Silicon. Use an existing transcript or configure Scribe on Intel Macs.');
-  const venv=path.join(state,'python');
-  if(!await exists(path.join(venv,'bin/python')))await run(python,['-m','venv',venv]);
-  await run(path.join(venv,'bin/python'),['-m','pip','install','-r',path.join(root,'requirements-local.txt')],{timeout:1200000});
+  try {
+   models=await report.step('local_models',async()=>{
+    if(process.arch!=='arm64')throw new Error('Local MLX Whisper requires Apple Silicon.');
+    return await localModels({root,state,python,run,report});
+   },'Local Whisper is optional. Use a verified Premiere-native transcript, an existing timed transcript, or explicitly authorized ElevenLabs (Scribe). No audio is uploaded by setup. Rerun setup --local-models after fixing the reported failure.');
+   if(models.requiresConfiguration)modelWarning={stage:'local_models',detail:'The new local environment is installed, but an explicit Python setting takes precedence.',fallback:`Run /bin/bash ${quote(path.join(root,'scripts/launch.sh'))} configure --python ${quote(models.path)}, then doctor.`};
+  }catch(error){modelWarning={stage:error.stage,attempts:error.attempts||1,detail:redact(error.message),fallback:error.fallback};await report.event('optional_failed',modelWarning);}
  }
- if(flags.has('--install-cep')) {
-  const target=path.join(homedir(),'Library/Application Support/Adobe/CEP/extensions/MCPBridgeCEP');
-  if(await exists(target)) {
-   // Existing installations belong to the user. Compare all packaged files before calling it current.
-   async function compare(dir,relative='') {for(const entry of await readdir(path.join(dir,relative),{withFileTypes:true})) {const name=path.join(relative,entry.name);if(entry.isDirectory())await compare(dir,name);else if(hash(await readFile(path.join(dir,name)))!==hash(await readFile(path.join(target,name))))throw new Error(`Existing CEP panel differs at ${name}; review the existing installation before replacing it.`);}}
-   await compare(path.join(runtimes,'cep-panel'));
-  } else {await mkdir(path.dirname(target),{recursive:true});await cp(path.join(runtimes,'cep-panel'),target,{recursive:true,errorOnExist:true,force:false});}
-  // Adobe's unsigned CEP development panel needs this preference. This only runs with --install-cep.
-  for(const version of [8,9,10,11,12,13,14])await run('/usr/bin/defaults',['write',`com.adobe.CSXS.${version}`,'PlayerDebugMode','1']);
+ result={status:modelWarning||installerWarning?'runtime_ready_with_pending_steps':'runtime_ready',dataDirectory:state,
+  uxpInstaller:installer,uxpDeveloperManifest:path.join(runtimes,'quadlzzz/panel/manifest.json'),cepPanel:path.join(runtimes,'cep-panel'),
+  localModels:models,warnings:[installerWarning,modelWarning].filter(Boolean),
+  livePremiereConnectionVerified:false,codexConnectionsVerified:false,modelWeightsVerified:false,retryCommand,
+  next:'Install the CCX through Adobe Creative Cloud, or load the prepared manifest in Adobe UXP Developer Tool. Open both panels and a project, then run doctor and smoke --live. After startup changes reload Codex connections or restart Codex and verify both bridges from the chat.'};
+ if(modelWarning||installerWarning)process.exitCode=2;
+}catch(error) {
+ process.exitCode=1;
+ result={status:'setup_failed',stage:error.stage||report?.stage||'preflight',attempts:error.attempts||Math.max(report?.attempt||0,1),detail:redact(error.message),
+  fallback:error.retryAfterMs>60000?`Wait at least ${Math.ceil(error.retryAfterMs/1000)} seconds before rerunning setup; the download server requested this delay.`:error.fallback||'Correct the reported error, then rerun the same setup command. Existing runtimes and project journals are preserved.',
+  retryCommand,retryAfterMs:error.retryAfterMs,dataDirectory:state,preserved:['installed runtimes','project journals','verified downloads','completed scratch checkpoints'],
+  livePremiereConnectionVerified:false,codexConnectionsVerified:false};
+}finally {
+ if(lock)try{await lock.assertReleasable();}catch(error){process.exitCode=1;result={...result,status:'setup_failed',stage:'setup_lock',detail:redact(error.message),fallback:error.fallback};}
+ if(report) {
+  try{await report.finish(result);result.log=report.log;result.statusFile=report.statusFile;}
+  catch(error){process.exitCode=1;result={...result,status:'setup_failed',stage:'diagnostic_report',detail:redact(error.message)};}
  }
- console.log(JSON.stringify({status:'runtime_ready',dataDirectory:state,uxpInstaller:ccx,cepPanel:path.join(runtimes,'cep-panel'),next:'Install/open the Adobe panels, then run doctor.mjs and a read-only live connection check.'},null,2));
-} finally {await rm(lockDirectory,{recursive:true});}
+ observeSetupProcesses(undefined);
+ if(lock)try{await lock.release();}catch(error){process.exitCode=1;result={...result,status:'setup_failed',stage:'setup_lock',detail:redact(error.message),fallback:error.fallback};}
+}
+console.log(JSON.stringify(result,null,2));

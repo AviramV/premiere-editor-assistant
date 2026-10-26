@@ -1,6 +1,7 @@
 import {digest,revision,predictKeep,predictReorder} from '../premiere/state.mjs';
 import {wordInterval,WORD_BOUNDARY_VERSION} from '../transcription/schema.mjs';
 import {planPacing,pacingKeepRanges} from './pacing.mjs';
+import {projectClipLinks,verifyClipLinks} from '../premiere/clip-links.mjs';
 
 export function planAssembly({sequence,script,transcript,matching,assessment,placement,order=script.passages.map(p=>p.id),handlesFrames=4,pacingMode='natural',pacingDecisions=[]}) {
   if(sequence.markers?.length) throw new Error('Assembly starts from an unmarked source duplicate');
@@ -54,6 +55,13 @@ export async function executeAssembly(adapter,{sourceId,sourceRevision,name,plan
   const ordered=await adapter.reorderBlocks({operationId:`${prefix}-order`,sequenceId:copy.sequenceId,beforeRevision:revision(state),ranges:plan.reorderRanges});
   const original=await adapter.inspect(sourceId);
   if(revision(original)!==sourceRevision) throw new Error('Assembly source preservation mismatch');
-  return {sequenceId:copy.sequenceId,name,state:ordered.observed,sourceRevisionPreserved:true,planId:plan.planId,
+  verifyClipLinks(original,copy.clipLinks.before,await adapter.readLinks(original));
+  const compacted=predictKeep(copy.before,plan.keepRanges);
+  const retainedLinks=projectClipLinks(copy.before,compacted,copy.clipLinks.before,{kind:'keep',ranges:plan.keepRanges});
+  const links=projectClipLinks(compacted,ordered.observed,retainedLinks,{kind:'reorder',ranges:plan.reorderRanges});
+  // All footage edits are complete. Restore original groups in one final pass.
+  const linked=await adapter.relinkSequence({operationId:`${prefix}-links`,sequenceId:copy.sequenceId,
+    beforeRevision:revision(ordered.observed),links});
+  return {sequenceId:copy.sequenceId,name,state:linked.observed,linksVerified:linked.clipLinks.verification,sourceRevisionPreserved:true,planId:plan.planId,
     sections:plan.sections,unresolved:plan.unresolved,review:plan.sections.filter(s=>s.review).map(s=>s.passageId)};
 }

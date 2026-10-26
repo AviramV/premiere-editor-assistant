@@ -1,5 +1,6 @@
 import {contentState, digest, predictKeep, predictReorder, revision} from '../premiere/state.mjs';
 import {verifySavedLabels, verifySavedDerivation, savedNativeRevision} from '../premiere/saved-evidence.mjs';
+import {projectClipLinks} from '../premiere/clip-links.mjs';
 
 // These ranges are on the finished Takes timeline, not the original recording.
 export function projectSelectsRanges(takesPlan, selectsPlan) {
@@ -120,6 +121,9 @@ export async function executeSelectsFromTakes(adapter, {sourceId, takesId, takes
     state = (await adapter.addMarkers({operationId: `${prefix}-markers-${offset / 200}`, sequenceId: state.id,
       beforeRevision: revision(state), markers: plan.markers.slice(offset, offset + 200)})).observed;
   }
+  const links=projectClipLinks(takes,state,copy.clipLinks.before,{kind:'keep',ranges:plan.keepRanges});
+  const linked=await adapter.relinkSequence({operationId:`${prefix}-links`,sequenceId:state.id,beforeRevision:revision(state),links});
+  state=linked.observed;
   const saved = await adapter.readSavedSequence(state.id);
   const native = verifySavedDerivation({before: savedTakes, saved, takes, selects: state, ranges: plan.keepRanges});
   const colors = verifySavedLabels({saved, sequence: state, targets: selectsPlan.labels});
@@ -133,6 +137,6 @@ export async function executeSelectsFromTakes(adapter, {sourceId, takesId, takes
   return {sequenceId: state.id, name, state, kind: 'selects', planId: plan.planId, sections: plan.sections,
     unresolved: [], review: plan.sections.filter(s => s.review).map(s => s.passageId), labelsPending: [],
     construction: plan.construction, takesSequenceId: takesId, sourceRevisionPreserved: true, takesRevisionPreserved: true,
-    nativeVerification: native, colorsVerified: colors.verified, takesColorsVerified: takesColors.verified,
+    nativeVerification: native, linksVerified: linked.clipLinks.verification, colorsVerified: colors.verified, takesColorsVerified: takesColors.verified,
     acceptancePending: ['proxy_review_render', 'save_close_reopen']};
 }

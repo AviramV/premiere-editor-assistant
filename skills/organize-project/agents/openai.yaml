@@ -1,0 +1,4 @@
+interface:
+  display_name: "Organize Premiere Project"
+  short_description: "Sort project bins and clarify media display names"
+  default_prompt: "Use $organize-project to organize my open Premiere project with the numbered bin schema and give unclear media items descriptive names."

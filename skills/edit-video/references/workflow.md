@@ -58,7 +58,7 @@ The `selects` stage reads freshly saved native instances, refuses incomplete or 
 
 ## Transcription configuration
 
-`transcribe` accepts `extraction` (input proxy, output mono WAV, stream/channel, interval, sample rate and normalization), `providers`, `cacheDirectory` and `output`. Providers are `mlx-whisper`, `existing` with a transcript `path`, or authorized `scribe`. The local provider uses the setup environment and bundled helper; custom `python` and `model` remain configurable. Set `ELEVENLABS_API_KEY` in the calling environment when using Scribe; never put it in distributed examples. The matching planner validates English script JSON with `language: "en"` and nonempty `passages` with unique IDs and text.
+`transcribe` accepts `extraction` (input proxy, output mono WAV, stream/channel, interval, sample rate and normalization), `providers`, `cacheDirectory` and `output`. Providers are `mlx-whisper`, `existing` with a transcript `path`, or authorized `scribe` (ElevenLabs/Scribe). The local provider uses the setup environment and bundled helper; custom `python` and `model` remain configurable. Set `ELEVENLABS_API_KEY` in the calling environment when using ElevenLabs (Scribe); never put it in distributed examples. The matching planner validates English script JSON with `language: "en"` and nonempty `passages` with unique IDs and text.
 
 External transcription also requires this target, resolved from current Premiere state:
 

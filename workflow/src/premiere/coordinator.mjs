@@ -7,6 +7,7 @@ import { ticksToSeconds } from '../core/timing.mjs';
 import {PremierePreflightRefusal} from './errors.mjs';
 import {helperPath,pythonPath} from '../core/environment.mjs';
 import {run} from '../core/process.mjs';
+import {bindClipLinks,verifyClipLinks} from './clip-links.mjs';
 
 export async function atomicJson(filename, value) {
   await mkdir(path.dirname(filename), { recursive: true });
@@ -93,11 +94,15 @@ export class PremiereCoordinator {
     try {
       if(Object.values(await this.ledger()).some(e=>['dispatched','indeterminate','ui_pending'].includes(e.status)))throw new Error('An uncertain edit blocks saved-state verification until reconciled');
       const before=await this.inspect(sequenceId);
+      const links=await this.readLinks(before);
       await this.transport.call('save_project');
       const output=path.resolve(this.directory,'native-evidence',`${sequenceId}.json`);
       await run(pythonPath(),[helperPath('read-project.py'),'--project',this.projectPath,'--sequence',sequenceId,'--output',output]);
       const saved=JSON.parse(await readFile(output,'utf8')),after=await this.inspect(sequenceId);
       if(saved.projectPath!==this.projectPath||saved.sequenceId!==sequenceId||saved.name!==before.name||revision(after)!==revision(before))throw new Error('Saved evidence target or timeline changed during verification');
+      saved.clipLinks=await this.readLinks(after);
+      verifyClipLinks(after,links,saved.clipLinks);
+      await atomicJson(output,saved);
       return saved;
     } finally {await release();}
   }
@@ -114,6 +119,16 @@ export class PremiereCoordinator {
     catch (error) { if (error.code === 'ENOENT') return {}; throw error; }
   }
   async persist(ledger) { await atomicJson(path.join(this.directory, 'journal.json'), ledger); }
+  async readLinks(sequence) {
+    return bindClipLinks(sequence,await this.transport.fixed('readClipLinks',{projectPath:this.projectPath,sequenceId:sequence.id}));
+  }
+  async relinkSequence({operationId,sequenceId,beforeRevision,links}) {
+    const before=await this.inspect(sequenceId,{active:true,editable:true});
+    if(revision(before)!==beforeRevision)throw new Error('Stale final relink plan');
+    const clipLinks=bindClipLinks(before,{...links,sequenceId});
+    return this.mutate({operationId,sequenceId,beforeRevision,expected:before,clipLinks,
+      dispatch:()=>this.transport.fixed('restoreClipLinks',{projectPath:this.projectPath,sequenceId,clipLinks})});
+  }
   async duplicate({ operationId, sourceId, beforeRevision, name }) {
     if (!/^[a-zA-Z0-9_.-]{1,128}$/.test(operationId || '') || !name || name.length > 200) throw new Error('Stable operation ID and bounded output name required');
     const release = await this.lock();
@@ -124,7 +139,9 @@ export class PremiereCoordinator {
       const before = await this.inspect(sourceId);
       ensureEditable(before);
       if (revision(before) !== beforeRevision) throw new Error('Stale duplication plan');
+      const sourceLinks=await this.readLinks(before);
       const entry = ledger[operationId] = { operationId, kind: 'duplicate', sourceId, name, before,
+        clipLinks:{before:sourceLinks},
         projectPath: this.projectPath, status: 'dispatched', startedAt: new Date().toISOString() };
       await this.persist(ledger);
       try {
@@ -215,7 +232,7 @@ export class PremiereCoordinator {
     for(const t of expected.tracks)if(t.kind==='audio'&&t.index>index)t.index--;
     return this.mutate({operationId,sequenceId,beforeRevision,expected,dispatch:()=>this.transport.fixed('removeEmptyAudioTrack',{projectPath:this.projectPath,sequenceId,emptyAudioTrack:{track:index,count:audio.length,name:track.name,muted:track.muted}})});
   }
-  async mutate({ operationId, sequenceId, beforeRevision, expected, dispatch, requireReportedDuration = false }) {
+  async mutate({ operationId, sequenceId, beforeRevision, expected, dispatch, requireReportedDuration = false, clipLinks }) {
     if (!/^[a-zA-Z0-9_.-]{1,128}$/.test(operationId || '')) throw new Error('Stable operation ID required');
     const release = await this.lock();
     try {
@@ -225,7 +242,7 @@ export class PremiereCoordinator {
       const before = await this.inspect(sequenceId, { active: true, editable: true });
       if (revision(before) !== beforeRevision) throw new Error('Stale edit plan');
       const entry = ledger[operationId] = { operationId, sequenceId, projectPath: this.projectPath,
-        before, expected, requireReportedDuration, status: 'dispatched', startedAt: new Date().toISOString() };
+        before, expected, requireReportedDuration, ...(clipLinks?{clipLinks:{expected:clipLinks}}:{}), status: 'dispatched', startedAt: new Date().toISOString() };
       // Persist before sending: a crashed process cannot accidentally retry the host edit.
       await this.persist(ledger);
       let response, error, preflightRefused=false;
@@ -240,6 +257,7 @@ export class PremiereCoordinator {
           entry.observed = observed;
           if (!preflightRefused && digest(contentState(observed)) === digest(contentState(expected)) &&
               (!requireReportedDuration || (!observed.durationUnderreported && observed.reportedDurationTicks === expected.durationTicks))) {
+            if(clipLinks)entry.clipLinks.verification=verifyClipLinks(observed,clipLinks,await this.readLinks(observed));
             entry.status = 'verified';
             entry.completedAt = new Date().toISOString();
             await this.persist(ledger);
@@ -272,6 +290,7 @@ export class PremiereCoordinator {
         await this.persist(ledger);
         throw new Error('Expected edit has not been proven; restore a verified snapshot before continuing');
       }
+      if(entry.clipLinks)entry.clipLinks.verification=verifyClipLinks(observed,entry.clipLinks.expected,await this.readLinks(observed));
       entry.status = 'verified';
       entry.completedAt = new Date().toISOString();
       await this.persist(ledger);

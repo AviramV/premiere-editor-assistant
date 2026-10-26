@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.4
+
+Add the organize-project skill for Premiere Project-panel bins and media display names. Use the editor-approved numbered folder schema, preserving its template sub-bins, ordering and intentionally empty categories. Keep timeline edits and disk filenames intact.
+
+Require a verified current backup, use attached proxies only when video-content review is needed for naming, leave uncertain classifications unchanged, and verify actual item destinations and names. A local session helper shares the existing writer lock and execution journal, blocks unresolved work, and records partial or unknown outcomes without replaying mutations.
+
+Package relocation and helper tests cover discovery, coordination and interrupted sessions. Native organization and save/reopen acceptance on a disposable Premiere project remain separate checks; no production project was organized for this integration.
+
 ## 0.1.3
 
 Automated Plugin Publishing is now maintained from a private development source with versioned, reproducible public distribution.
