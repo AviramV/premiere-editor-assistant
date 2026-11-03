@@ -2,7 +2,7 @@
 
 A local Agent Plugins package for Adobe Premiere Pro on macOS, installable in Codex and Claude Code. It creates two editable sequences: **Takes**, containing usable takes and attempts, and **Selects**, containing the selected takes. Both include every independent part, put hooks first, and use matching colors for the same parts.
 
-Current release: **0.1.5**. See [CHANGELOG.md](CHANGELOG.md) for release notes. The plugin supports Project-panel organization, native transcript preparation, Selects derived from Takes, and OMF sound handoff.
+Current release: **0.1.6**. See [CHANGELOG.md](CHANGELOG.md) for release notes. The plugin supports Project-panel organization, native transcript preparation, Selects derived from Takes, and OMF sound handoff.
 
 ## Install from GitHub
 
@@ -27,9 +27,9 @@ Start a new Claude Code session after installation. In either agent, ask:
 
 > Set up Premiere Editor Assistant on this Mac.
 
-The repository includes the built workflow: no development build is required. To pin this release in Codex, add `--ref v0.1.5` to its marketplace command.
+The repository includes the built workflow: no development build is required. To pin this release in Codex, add `--ref v0.1.6` to its marketplace command.
 
-Alternatively, download the ZIP and its SHA-256 file from [Releases](https://github.com/AviramV/premiere-editor-assistant/releases), verify with `shasum -a 256 -c premiere-editor-assistant-0.1.5.zip.sha256`, unzip it into a permanent folder, and follow [INSTALL.md](INSTALL.md).
+Alternatively, download the ZIP and its SHA-256 file from [Releases](https://github.com/AviramV/premiere-editor-assistant/releases), verify with `shasum -a 256 -c premiere-editor-assistant-0.1.6.zip.sha256`, unzip it into a permanent folder, and follow [INSTALL.md](INSTALL.md).
 
 ## Requirements and setup
 

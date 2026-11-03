@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.6
+
+Fix setup and connection verification across Codex, Claude Code and shell launches.
+
+- Use a stable shared runtime directory instead of changing locations when an agent supplies PLUGIN_DATA.
+- Save verified custom runtime locations per package version for reuse after restart. Preserve conflicting installations and report legacy host-managed locations for reconciliation.
+- Wait up to 20 seconds for Premiere's panel to reconnect without restarting the UXP broker. Recognize the shipped panel-not-connected error and structured readiness errors; never retry editorial mutations.
+- Document startup-log diagnosis, migration and the distinction between installed dependencies, live Premiere connectivity and tools loaded in the current chat.
+- Add regression coverage for host-environment changes, custom/legacy paths, version upgrades, delayed panel readiness and permanent failures.
+
 ## 0.1.5
 
 Add Claude Code installation from the existing public repository marketplace, alongside Codex and the Agent Plugins 1.0.0 package. Both agents use the same skills, launchers, Premiere bridges and workflow code. The portable MCP configuration now uses the standard bare `bash` executable token.

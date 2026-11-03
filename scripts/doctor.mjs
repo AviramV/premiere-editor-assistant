@@ -1,9 +1,10 @@
 import path from 'node:path';
 import {homedir} from 'node:os';
-import {root,state,runtimes,executable,run,exists,runtimeReady,hash,environment} from './common.mjs';
+import {root,state,location,runtimes,executable,run,exists,runtimeReady,hash,environment} from './common.mjs';
 import {settingsDirectory} from './settings.mjs';
 import {readFile,readdir} from 'node:fs/promises';
 
+const legacyRuntime=location.legacyDirectory&&await exists(path.join(location.legacyDirectory,'integrations/installation.json'))?{path:location.legacyDirectory,compatibility:'unverified',remedy:'To reuse this installation, run setup with PREMIERE_ASSISTANT_DATA set to this exact directory. Setup verifies it before registering it for both agents. Preserve all existing directories and journals.'}:undefined;
 const checks=[];
 checks.push({name:'macOS',required:true,ok:process.platform==='darwin'});
 checks.push({name:'Node.js 22+',required:true,ok:Number(process.versions.node.split('.')[0])>=22,version:process.versions.node,path:process.execPath});
@@ -77,7 +78,7 @@ for(const [index,[name]] of helpers.entries())checks.push({name,required:true,ok
  remedy:'Install the generated CCX through Adobe Creative Cloud, or load the prepared manifest in UXP Developer Tool. For a developer-loaded panel, set PREMIERE_ASSISTANT_UXP_PANEL to its directory for this check.'});
 
 const ready=checks.filter(c=>c.required).every(c=>c.ok);
-console.log(JSON.stringify({status:ready?'dependencies_ready':'setup_needed',dataDirectory:state,executableSettingsDirectory:settingsDirectory(),checks,previousPythonEnvironments,
+console.log(JSON.stringify({status:ready?'dependencies_ready':'setup_needed',dataDirectory:state,runtimeLocation:location,legacyRuntime,executableSettingsDirectory:settingsDirectory(),checks,previousPythonEnvironments,
  uxpInstaller:path.join(state,'premiere-editor-assistant-panel.ccx'),
  livePremiereConnectionVerified:false,codexConnectionsVerified:false,modelWeightsVerified:false,
  next:ready?'Open both panels and a Premiere project, then run smoke --live. After a launcher/configuration change, reload Codex connections or restart Codex and verify both bridges from the chat.':'Resolve required checks, then rerun doctor. Optional local models do not block setup.'},null,2));

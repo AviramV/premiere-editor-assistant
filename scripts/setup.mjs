@@ -1,8 +1,9 @@
 import path from 'node:path';
 import {homedir} from 'node:os';
 import {mkdir} from 'node:fs/promises';
-import {root,state,runtimes,run,environment,executable,runtimeReady,bridgePatchHash,observeSetupProcesses} from './common.mjs';
+import {root,state,location,runtimes,run,environment,executable,runtimeReady,bridgePatchHash,observeSetupProcesses} from './common.mjs';
 import {acquireSetupLock,createReport,redact} from './setup-recovery.mjs';
+import {registerRuntime} from './runtime-location.mjs';
 import {provisionRuntime,prepareInstaller,installCep,localModels} from './setup-runtime.mjs';
 
 const flags=new Set(process.argv.slice(2));
@@ -22,6 +23,7 @@ try {
  await report.step('python_requirement',()=>run(python,['-c','import sys; assert sys.version_info >= (3,9), "Python 3.9+ required"']),
   'Use configure --python with an existing Python 3.9+ executable, or install a compatible Python through your package manager or a verified official installer.');
  await provisionRuntime({root,state,runtimes,python,npm:executable('npm'),run,env:environment(),checkRuntime:runtimeReady,patchSha256:await bridgePatchHash(),report});
+ await report.step('runtime_registration',()=>registerRuntime(location), 'Preserve existing runtimes and reconcile the reported saved location. Setup and both agents must use the same runtime directory.');
  let installer,installerWarning;
  try{installer=await prepareInstaller({state,runtimes,python,run,report});}
  catch(error){installerWarning={stage:error.stage,attempts:error.attempts||1,detail:redact(error.message),fallback:error.fallback};await report.event('fallback_available',installerWarning);}
@@ -36,7 +38,7 @@ try {
    if(models.requiresConfiguration)modelWarning={stage:'local_models',detail:'The new local environment is installed, but an explicit Python setting takes precedence.',fallback:`Run /bin/bash ${quote(path.join(root,'scripts/launch.sh'))} configure --python ${quote(models.path)}, then doctor.`};
   }catch(error){modelWarning={stage:error.stage,attempts:error.attempts||1,detail:redact(error.message),fallback:error.fallback};await report.event('optional_failed',modelWarning);}
  }
- result={status:modelWarning||installerWarning?'runtime_ready_with_pending_steps':'runtime_ready',dataDirectory:state,
+ result={status:modelWarning||installerWarning?'runtime_ready_with_pending_steps':'runtime_ready',dataDirectory:state,runtimeLocation:location,
   uxpInstaller:installer,uxpDeveloperManifest:path.join(runtimes,'quadlzzz/panel/manifest.json'),cepPanel:path.join(runtimes,'cep-panel'),
   localModels:models,warnings:[installerWarning,modelWarning].filter(Boolean),
   livePremiereConnectionVerified:false,codexConnectionsVerified:false,modelWeightsVerified:false,retryCommand,
