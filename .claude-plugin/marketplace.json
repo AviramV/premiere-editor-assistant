@@ -1,0 +1,13 @@
+{
+  "name": "premiere-editor-assistant-local",
+  "description": "Local Adobe Premiere Pro workflows for Codex and Claude Code.",
+  "owner": {
+    "name": "AviramV"
+  },
+  "plugins": [
+    {
+      "name": "premiere-editor-assistant",
+      "source": "./"
+    }
+  ]
+}

@@ -1,14 +1,14 @@
 {
   "mcpServers": {
     "premiere_cep": {
-      "command": "/bin/bash",
+      "command": "bash",
       "args": [
         "${CLAUDE_PLUGIN_ROOT}/scripts/launch.sh",
         "premiere_cep"
       ]
     },
     "premiere_uxp": {
-      "command": "/bin/bash",
+      "command": "bash",
       "args": [
         "${CLAUDE_PLUGIN_ROOT}/scripts/launch.sh",
         "premiere_uxp"

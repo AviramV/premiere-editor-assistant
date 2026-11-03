@@ -44,12 +44,19 @@ for name, checksum in expected.items():
         modules += 1
 plugin = json.loads((ROOT / 'plugin.json').read_text())
 compat = json.loads((ROOT / '.codex-plugin/plugin.json').read_text())
-assert plugin['name'] == compat['name'] == manifest['name']
-assert plugin['version'] == compat['version'] == manifest['version']
+claude = json.loads((ROOT / '.claude-plugin/plugin.json').read_text())
+assert plugin['name'] == compat['name'] == claude['name'] == manifest['name']
+assert plugin['version'] == compat['version'] == claude['version'] == manifest['version']
 catalog = json.loads((ROOT / '.agents/plugins/marketplace.json').read_text())
 assert len(catalog['plugins']) == 1
 assert catalog['plugins'][0]['name'] == plugin['name']
 assert (ROOT / catalog['plugins'][0]['source']['path']).resolve() == ROOT
+claude_catalog = json.loads((ROOT / '.claude-plugin/marketplace.json').read_text())
+assert claude_catalog['name'] == catalog['name']
+assert claude_catalog['owner']['name']
+assert len(claude_catalog['plugins']) == 1
+assert claude_catalog['plugins'][0]['name'] == plugin['name']
+assert (ROOT / claude_catalog['plugins'][0]['source']).resolve() == ROOT
 for name in ['scripts/launch.sh', 'scripts/setup.mjs', 'scripts/bridge.mjs',
              'skills/setup/SKILL.md', 'skills/edit-video/SKILL.md',
              'workflow/tools/workflow.mjs', 'vendor/leancoder/LICENSE']:

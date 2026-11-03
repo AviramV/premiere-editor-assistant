@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.5
+
+Add Claude Code installation from the existing public repository marketplace, alongside Codex and the Agent Plugins 1.0.0 package. Both agents use the same skills, launchers, Premiere bridges and workflow code. The portable MCP configuration now uses the standard bare `bash` executable token.
+
+Release preparation and distribution verification synchronize the portable, Codex and Claude manifest identities and versions and verify both catalogs target the shared package. Installation and setup documentation covers both agents. Repository instructions require future development to preserve this shared package and compatibility metadata.
+
+This release changes packaging and installation guidance only. Editing, transcription, project organization, OMF export and bridge runtime behavior are unchanged. Native editorial acceptance from previous releases is not extended by packaging checks.
+
+Validation: all 198 automated tests passed, and the portable manifests passed the official Agent Plugins 1.0.0 JSON schemas. Claude Code 2.1.197 validated the plugin and marketplace without warnings and installed the staged public package in an isolated local profile; all 107 installed payload files matched their checksums. All 95 runtime and editorial files checked against public v0.1.4 remained byte-identical. The staged distribution reproduced the tested ZIP. Live editing through Claude Code remains untested.
+
 ## 0.1.4
 
 Add the organize-project skill for Premiere Project-panel bins and media display names. Use the editor-approved numbered folder schema, preserving its template sub-bins, ordering and intentionally empty categories. Keep timeline edits and disk filenames intact.
