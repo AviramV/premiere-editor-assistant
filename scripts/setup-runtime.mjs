@@ -90,7 +90,9 @@ export async function installCep({root,state,target,run,report}) {
  },'An existing differing CEP panel is preserved. Review and back it up before any replacement. Correct permission/disk-space errors and rerun setup --install-cep; a matching panel is reused.');
 }
 export async function localModels({root,state,python,run,report,retryOptions={}}) {
- const probe=['-c','import mlx_whisper, torch, transformers, sentencepiece'];
+ const probe=[path.join(root,'workflow/tools/local_models.py')];
+ // GPU denial is not a broken environment: stop before reuse probes or pip work.
+ await run(python,[...probe,'--metal-only'],{timeout:15000});
  const requirements=hash(await readFile(path.join(root,'requirements-local.txt'))),venv=path.join(state,'python'),localPython=path.join(venv,'bin/python');
  if(process.env.PREMIERE_ASSISTANT_PYTHON) {
   try{await run(python,probe,{timeout:45000});return {path:python,reused:true,modelWeightsVerified:false};}catch{}

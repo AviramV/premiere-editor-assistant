@@ -18,7 +18,7 @@ catch(error){checks.push({name:'pinned_bridge_runtime',required:true,ok:false,de
 
 const localPython=environment().PREMIERE_ASSISTANT_PYTHON;
 try {
- await run(localPython,['-c','import mlx_whisper, torch, transformers, sentencepiece; print("Local transcription imports passed; model weights untested")'],{timeout:45000});
+ await run(localPython,[path.join(root,'workflow/tools/local_models.py')],{timeout:45000});
  checks.push({name:'local_models_environment',required:false,ok:true,path:localPython,modelWeightsVerified:false});
 } catch(error) {
  checks.push({name:'local_models_environment',required:false,ok:false,path:localPython,detail:error.message,remedy:'Optional: configure a compatible existing environment with configure --python /absolute/venv/bin/python, or run setup --local-models. Premiere-native transcripts, existing timed transcripts and explicitly authorized ElevenLabs (Scribe) are alternatives.'});

@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "premiere-editor-assistant",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "A local Premiere Pro workflow for project organization, usable Takes, complete Selects, native transcripts and OMF sound handoff.",
   "author": {
     "name": "AviramV"

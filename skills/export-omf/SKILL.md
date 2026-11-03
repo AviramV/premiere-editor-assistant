@@ -33,3 +33,5 @@ Before footage-dependent review or cleanup, follow the Assistant's proxy policy:
 Use [scripts/verify_omf.py](scripts/verify_omf.py) for deterministic read-only checks. It compares complete audio snapshots and checks the exported file's size, SHA-256 and Bento container footer. See the procedure for commands and evidence limits. It neither controls Premiere nor proves a DAW import. Do not claim effect/keyframe fidelity or listening verification from a clip-list comparison.
 
 After a failed or timed-out mutation, inspect current state before retrying. If source IDs, active sequence, retained audio, or snapshot completeness cannot be established, stop the affected operation and explain the specific blocker. Do not enable unsafe scripting, remove preview guards, or blindly replay an uncertain export.
+
+For host errors or connection failures, follow the [host recovery procedure](../setup/references/host-recovery.md). Reconnect the affected component first after ruling out an operation still in flight. Full Premiere restarts are a last resort with recorded evidence; save/reopen checks refer to the project.

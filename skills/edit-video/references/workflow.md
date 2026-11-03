@@ -83,3 +83,5 @@ Adobe documents [transcript JSON import and import actions](https://developer.ad
 ## Acceptance limits
 
 The core workflow had 128 automated tests and live Premiere 26.3.2 acceptance before packaging. That evidence applies to the original tested workstation. A relocated package’s handshake test verifies server startup and tool discovery; `smoke --live` adds read-only Premiere response checks. Native colors, listening quality, editing, rendering and persistence on another machine remain separate checks. Gemini, finishing graphics, captions, music, B-roll and independent raw-media synchronization remain later phases.
+
+Local MLX transcription checks Metal GPU access before loading the model library. Use the setup skill’s guarded local-model check rather than ad-hoc MLX imports. Unavailable GPU access is a preparation failure; resolve the execution context through the host’s normal approval mechanism or use an authorized transcript alternative, without repeating the restricted import or reinstalling models.

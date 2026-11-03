@@ -8,23 +8,36 @@ async function guardedReorder(ppro,params) {
   if(step!==undefined&&(!Number.isInteger(step)||step<0||step>119||params.deferFinalShift!==true))throw new Error('Invalid reorder checkpoint');
   const frame=BigInt(frameTicks);
   if(frame<=0n) throw new Error('A positive frame grid is required');
-  const project=await ppro.Project.getActiveProject();
-  if(!project||project.path!==projectPath) throw new Error('Wrong project or active sequence');
-  const sequence=await project.getActiveSequence();
-  if(!sequence||String(sequence.guid)!==sequenceId) throw new Error('Wrong project or active sequence');
+  const target=async()=>{
+    const project=await ppro.Project.getActiveProject();
+    if(!project||project.path!==projectPath)throw new Error('Wrong project or active sequence');
+    const sequence=await project.getActiveSequence();
+    if(!sequence||String(sequence.guid)!==sequenceId)throw new Error('Wrong project or active sequence');
+    return {project,sequence};
+  };
+  const {sequence}=await target();
+  // Retain only track coordinates across transactions, never native handles.
   const tracks=[];
   for(const kind of ['video','audio']) {
     const count=await sequence[kind==='video'?'getVideoTrackCount':'getAudioTrackCount']();
-    for(let index=0;index<count;index++) tracks.push({kind,index,track:await sequence[kind==='video'?'getVideoTrack':'getAudioTrack'](index)});
+    for(let index=0;index<count;index++)tracks.push({kind,index});
   }
+  const verifyTracks=async sequence=>{
+    for(const kind of ['video','audio']) {
+      const count=await sequence[kind==='video'?'getVideoTrackCount':'getAudioTrackCount']();
+      if(count!==tracks.filter(t=>t.kind===kind).length)throw new Error('Native track layout changed');
+    }
+  };
   const read=async()=>{
+    const {sequence}=await target();
+    await verifyTracks(sequence);
     const rows=[];
     for(const t of tracks) {
-      t.track=await sequence[t.kind==='video'?'getVideoTrack':'getAudioTrack'](t.index);
-      const count=(t.track.getTrackItems(ppro.Constants.TrackItemType.CLIP,false)||[]).length;
+      const track=await sequence[t.kind==='video'?'getVideoTrack':'getAudioTrack'](t.index);
+      const count=(track.getTrackItems(ppro.Constants.TrackItemType.CLIP,false)||[]).length;
       for(let itemIndex=0;itemIndex<count;itemIndex++) {
         // Do not retain the whole native item list across asynchronous reads.
-        const items=t.track.getTrackItems(ppro.Constants.TrackItemType.CLIP,false)||[];
+        const items=track.getTrackItems(ppro.Constants.TrackItemType.CLIP,false)||[];
         if(items.length!==count)throw new Error('Clip count changed during readback');
         const item=items[itemIndex];if(!item)continue;
         const tick=promise=>Promise.resolve(promise).then(time=>String(time.ticks));
@@ -39,7 +52,7 @@ async function guardedReorder(ppro,params) {
   const near=(a,b)=>{const d=BigInt(a)-BigInt(b);return d>=-512n&&d<=512n;};
   const match=(row,m,start)=>row.kind===m.kind&&row.index===m.track&&row.sourceUid===m.sourceUid&&row.name===m.name&&
     near(row.startTicks,start)&&near(row.endTicks,BigInt(start)+BigInt(m.endTicks)-BigInt(m.startTicks))&&near(row.inTicks,m.inTicks)&&near(row.outTicks,m.outTicks);
-  const readVerified=async (predicate,phase)=>{
+  const retryRead=async (read,predicate,phase)=>{
     let lastError;
     for(let attempt=0;attempt<10;attempt++) {
       try {const rows=await read();if(predicate(rows))return rows;lastError=null;}
@@ -51,6 +64,11 @@ async function guardedReorder(ppro,params) {
     }
     throw new Error(`${phase}: ${lastError?.message||'Transaction readback unverified'}; inspect before another mutation`);
   };
+  const readVerified=(predicate,phase)=>retryRead(read,predicate,phase);
+  const duration=()=>retryRead(async()=>{
+    const {sequence}=await target();
+    return String((await sequence.getEndTime()).ticks);
+  },()=>true,'duration readback');
   let before=await readVerified(()=>true,'initial native readback');
   if(step===undefined&&before.length!==moves.length) throw new Error('Clip count changed before reorder');
   const selected=new Set(),originals=[];
@@ -71,10 +89,8 @@ async function guardedReorder(ppro,params) {
   }
   const park=contentEnd+frame*10n;
   const commit=async(build,label,expectedRows)=>{try{
-    const freshProject=await ppro.Project.getActiveProject();
-    if(!freshProject||freshProject.path!==projectPath)throw new Error('Native project handle changed');
-    const freshSequence=await freshProject.getActiveSequence();
-    if(!freshSequence||String(freshSequence.guid)!==sequenceId)throw new Error('Native sequence handle changed');
+    const {project:freshProject,sequence:freshSequence}=await target();
+    await verifyTracks(freshSequence);
     const actionTracks=await Promise.all(tracks.map(async t=>({...t,track:await freshSequence[t.kind==='video'?'getVideoTrack':'getAudioTrack'](t.index)})));
     freshProject.lockedAccess(()=>{
     // Native editor/items expire across awaits. Read only their slots outside
@@ -85,7 +101,7 @@ async function guardedReorder(ppro,params) {
     };
     const key=t=>`${t.kind}:${t.index}`;
     const items=new Map(actionTracks.map(t=>[key(t),t.track.getTrackItems(ppro.Constants.TrackItemType.CLIP,false)||[]]));
-    if(project.path!==projectPath||tracks.some(t=>items.get(key(t)).filter(Boolean).length!==expectedRows.filter(row=>key(row)===key(t)).length))throw new Error('Native clip slots changed before transaction');
+    if(freshProject.path!==projectPath||tracks.some(t=>items.get(key(t)).filter(Boolean).length!==expectedRows.filter(row=>key(row)===key(t)).length))throw new Error('Native clip slots changed before transaction');
     const itemAt=row=>{
       // A native action constructor can invalidate sibling wrappers returned
       // by a previous getTrackItems call, even while the project is locked.
@@ -132,7 +148,7 @@ async function guardedReorder(ppro,params) {
     }
     await readVerified(valid,'checkpoint readback');
     const parked=step===totalSteps-1;
-    return {ok:true,verified:true,checkpoint:true,completedStep:step,nextStep:step+1,totalSteps,parked,parkTicks:String(park),sequenceId,cloned:parked?moves.length:presentClones.length,reportedDurationTicks:String((await sequence.getEndTime()).ticks)};
+    return {ok:true,verified:true,checkpoint:true,completedStep:step,nextStep:step+1,totalSteps,parked,parkTicks:String(park),sequenceId,cloned:parked?moves.length:presentClones.length,reportedDurationTicks:await duration()};
   }
   let current=before,cloned=[];
   for(const batch of batches){
@@ -152,7 +168,7 @@ async function guardedReorder(ppro,params) {
     removed.push(...batch.map(p=>p.m));const remaining=moves.filter(m=>!removed.includes(m));
     current=await readVerified(rows=>rows.length===moves.length+remaining.length&&moves.every(m=>rows.filter(row=>match(row,m,park+BigInt(m.destinationTicks))).length===1)&&remaining.every(m=>rows.filter(row=>match(row,m,m.startTicks)).length===1),'removal readback');
   }
-  if(params.deferFinalShift===true)return {ok:true,verified:true,parked:true,parkTicks:String(park),sequenceId,cloned:moves.length,reportedDurationTicks:String((await sequence.getEndTime()).ticks)};
+  if(params.deferFinalShift===true)return {ok:true,verified:true,parked:true,parkTicks:String(park),sequenceId,cloned:moves.length,reportedDurationTicks:await duration()};
   if(params.deferFinalShift!==undefined&&params.deferFinalShift!==false)throw new Error('Invalid final shift mode');
   let shifted=[];
   for(const batch of batches){
@@ -162,6 +178,6 @@ async function guardedReorder(ppro,params) {
     current=await readVerified(rows=>rows.length===moves.length&&shifted.every(m=>rows.filter(row=>match(row,m,m.destinationTicks)).length===1)&&remaining.every(m=>rows.filter(row=>match(row,m,park+BigInt(m.destinationTicks))).length===1),'shift readback');
   }
 
-  return {ok:true,verified:true,sequenceId,cloned:moves.length,reportedDurationTicks:String((await sequence.getEndTime()).ticks)};
+  return {ok:true,verified:true,sequenceId,cloned:moves.length,reportedDurationTicks:await duration()};
 }
 module.exports={guardedReorder};

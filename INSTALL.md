@@ -1,4 +1,4 @@
-# Premiere Editor Assistant 0.1.6
+# Premiere Editor Assistant 0.1.7
 
 A local macOS plugin for editable Takes and Selects, with Project-panel organization and a separate OMF sound-handoff skill. English editorial input is validated; optional local transcription requires Apple Silicon. Premiere 26.3.2 was the original tested host.
 
@@ -63,7 +63,7 @@ If Creative Cloud cannot install the CCX, load the reported prepared manifest th
 
 ## Upgrade from an earlier version
 
-Refresh the marketplace and update the plugin. Run setup for the new 0.1.6 runtime directory; keep previous runtime data and all project journals. The updated UXP panel includes native transcript import, so load it when doctor reports a panel mismatch. External transcription configurations now require the exact Premiere project path, observed UXP source-item ID and the shared execution journal directory; see the edit-video workflow reference. Do not reuse or clear an uncertain operation to bypass reconciliation.
+Refresh the marketplace and update the plugin. Run setup for the new 0.1.7 runtime directory; keep previous runtime data and all project journals. The updated UXP panel includes native transcript import, so load it when doctor reports a panel mismatch. External transcription configurations now require the exact Premiere project path, observed UXP source-item ID and the shared execution journal directory; see the edit-video workflow reference. Do not reuse or clear an uncertain operation to bypass reconciliation.
 
 1. Run doctor using the new package's launcher. A missing new runtime marker means setup is needed for that version; it does not mean the previous runtime is broken. Doctor prints executable paths, the data directory, panel mismatches and specific next actions. Missing/outdated Adobe panels block dependency readiness; optional transcription does not.
 2. Reuse an older local transcription environment if desired: doctor lists candidate paths without assuming compatibility. Run `configure --python "/older/runtime/python/bin/python"`, then rerun doctor to check imports, including SentencePiece. Keep the referenced older directory. Installed imports do not verify model weights or a real transcription.
@@ -83,7 +83,7 @@ Ask the plugin to prepare Takes and Selects, provide the Premiere project/source
 
 After external transcription, the workflow imports timed words onto the exact original media item as a native Premiere transcript, verifies readback and saves. Matching native transcripts are reused; conflicts require reconciliation. Editors can later use Premiere’s native Create captions from transcript dialog.
 
-Each project keeps its own inventory, transcript, operation journal and evidence. Shared runtimes default to `~/Library/Application Support/Premiere Editor Assistant/0.1.6`; `PREMIERE_ASSISTANT_DATA` can override this. Custom executables can be provided through `PREMIERE_ASSISTANT_NODE`, `PREMIERE_ASSISTANT_PYTHON`, `PREMIERE_ASSISTANT_FFMPEG` and `PREMIERE_ASSISTANT_FFPROBE`. These are local settings, not values to put in a shared archive.
+Each project keeps its own inventory, transcript, operation journal and evidence. Shared runtimes default to `~/Library/Application Support/Premiere Editor Assistant/0.1.7`; `PREMIERE_ASSISTANT_DATA` can override this. Custom executables can be provided through `PREMIERE_ASSISTANT_NODE`, `PREMIERE_ASSISTANT_PYTHON`, `PREMIERE_ASSISTANT_FFMPEG` and `PREMIERE_ASSISTANT_FFPROBE`. These are local settings, not values to put in a shared archive.
 
 For a sound handoff, ask export-omf to export your chosen sequence to a destination folder. It prepares a separate audio-only copy and defaults to 48 kHz, 24-bit embedded WAV with five-second handles. It uses the existing CEP bridge and Python standard library. Container checks and audio-metadata comparisons do not prove a successful Pro Tools import; live OMF acceptance remains separate.
 
@@ -97,3 +97,7 @@ Runtime location is shared across Codex, Claude Code and shell setup. Resolution
 When upgrading from a host-managed installation, doctor reports a legacy `PLUGIN_DATA/<version>` runtime when visible in that environment. To reuse it, run setup with `PREMIERE_ASSISTANT_DATA` set to its exact absolute directory; setup validates the runtime before registering it. Do not move Python environments or erase project journals. If runtime versions/checksums differ, prepare the current version separately. A shell doctor alone cannot prove the agent's environment or tool availability: inspect MCP startup errors for the actual resolved directory before requesting a restart, then verify read-only calls through both chat tools after reload.
 
 Live smoke checks allow up to 20 seconds for the Adobe panel to reconnect while retaining the same MCP client and broker. Only read-only host probes are repeated. A missing panel reports a readiness timeout; unsupported host responses fail immediately. Transport startup retries remain separate. Successful file/dependency checks do not establish live connectivity or chat-tool availability.
+
+## Premiere connection and editing recovery
+
+Use the shared [host recovery procedure](skills/setup/references/host-recovery.md). Ordinary editing and project persistence checks do not require quitting Premiere. Diagnose the affected bridge, preserve uncertain operation evidence, and recover the smallest affected component before considering a documented application restart.

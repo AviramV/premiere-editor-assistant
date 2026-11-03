@@ -56,3 +56,5 @@ Use complete `get_full_sequence_info` snapshots when a task needs timeline-prese
 Save after successful readback and verify the final bin order in Premiere. Close the shared writer session only after the final checks. Preserve the user's active sequence, selection and playhead where possible; restore temporary UI state only if it will not override intervening work. Use a disposable project copy for save/reopen acceptance; do not automatically close/reopen the user's working project.
 
 Finish briefly: resulting structure, verified move/rename counts, backup location, and any uncertain items or verification gaps. Distinguish Project-panel names from disk filenames. Never describe planning, a helper receipt or package tests as a completed native edit.
+
+For host errors or connection failures, follow the [host recovery procedure](../setup/references/host-recovery.md). Reconnect the affected component first after ruling out an operation still in flight. Full Premiere restarts are a last resort with recorded evidence; save/reopen checks refer to the project.

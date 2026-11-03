@@ -3,7 +3,7 @@ import argparse
 import json
 import pathlib
 import time
-import mlx_whisper
+from local_models import MetalUnavailable, require_metal
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--audio', required=True)
@@ -14,6 +14,12 @@ args = parser.parse_args()
 audio = pathlib.Path(args.audio)
 if not audio.is_file():
     raise SystemExit('Local audio input is missing')
+try:
+    require_metal()
+except MetalUnavailable as error:
+    raise SystemExit(str(error))
+import mlx_whisper
+
 started = time.monotonic()
 result = mlx_whisper.transcribe(str(audio), path_or_hf_repo=args.model,
     language='en', word_timestamps=True, temperature=0.0,

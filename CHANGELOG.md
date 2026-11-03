@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.7
+
+Fix expired Premiere object recovery and prevent local MLX checks from crashing when Metal GPU access is unavailable.
+
+- Reacquire and verify the active project, sequence and track handles for each bounded reorder readback, including final duration checks. Stop if the active target or track layout changes. Never replay clone, remove or shift edits during read retries.
+- Share recovery guidance across setup, editing, project organization and OMF export. Reconnect the affected component first; full Premiere restarts are a documented last resort after operation and save state are reconciled.
+- Check Metal through system APIs before importing MLX in setup, doctor and local transcription. Unavailable GPUs produce a normal actionable error before model imports or environment installation, preserving existing audio and transcript files.
+- Keep the portable, Codex and Claude Code packages on the same shared runtime and workflows.
+
+Validation: all 210 automated tests passed on macOS, including a GPU-restricted subprocess check. Coverage includes expired native wrappers, bounded read failures, changed targets and track layouts, unavailable Metal devices, guarded imports, successful transcription with a model fixture, and package reproducibility and compatibility. Native large-reorder acceptance, zero-restart host reliability and real-model transcription are not established by these automated checks.
+
 ## 0.1.6
 
 Fix setup and connection verification across Codex, Claude Code and shell launches.
