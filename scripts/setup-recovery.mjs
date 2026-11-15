@@ -63,7 +63,7 @@ export async function downloadPinned(pin,directory,{fetchImpl=fetch,...options}=
 }
 export async function treeDigest(directory,relative='') {
  if(!relative&&(await lstat(directory)).isSymbolicLink())throw new Error('Unexpected symlink at setup stage root');
- const files={};
+ const files=Object.create(null);
  for(const entry of (await readdir(path.join(directory,relative),{withFileTypes:true})).sort((a,b)=>a.name.localeCompare(b.name))) {
   const name=path.join(relative,entry.name);
   if(entry.isSymbolicLink()) {

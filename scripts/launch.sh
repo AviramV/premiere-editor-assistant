@@ -28,6 +28,6 @@ if [ -z "$plugin_node" ]; then
   exit 1
 fi
 case "${1:-}" in
-  setup|doctor|configure|run|smoke) script="$1"; shift; exec "$plugin_node" "$plugin_root/scripts/$script.mjs" "$@" ;;
+  setup|doctor|configure|run|smoke|cleanup) script="$1"; shift; exec "$plugin_node" "$plugin_root/scripts/$script.mjs" "$@" ;;
   *) exec "$plugin_node" "$plugin_root/scripts/bridge.mjs" "$@" ;;
 esac

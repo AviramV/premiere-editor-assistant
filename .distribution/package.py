@@ -57,6 +57,15 @@ assert claude_catalog['owner']['name']
 assert len(claude_catalog['plugins']) == 1
 assert claude_catalog['plugins'][0]['name'] == plugin['name']
 assert (ROOT / claude_catalog['plugins'][0]['source']).resolve() == ROOT
+portable_mcp = json.loads((ROOT / 'mcp.json').read_text())['mcpServers']
+claude_mcp = json.loads((ROOT / '.mcp.json').read_text())['mcpServers']
+normalized_mcp = json.loads(json.dumps(claude_mcp).replace('${CLAUDE_PLUGIN_ROOT}', '${PLUGIN_ROOT}'))
+for server in normalized_mcp.values():
+    server.setdefault('type', 'stdio')
+assert normalized_mcp == portable_mcp, 'Codex/Claude MCP launch settings differ'
+for name, server in portable_mcp.items():
+    assert server['type'] == 'stdio' and server['command'] == 'bash'
+    assert server['args'] == ['${PLUGIN_ROOT}/scripts/launch.sh', name]
 for name in ['scripts/launch.sh', 'scripts/setup.mjs', 'scripts/bridge.mjs',
              'skills/setup/SKILL.md', 'skills/edit-video/SKILL.md',
              'workflow/tools/workflow.mjs', 'vendor/leancoder/LICENSE']:

@@ -3,7 +3,7 @@ import {fileURLToPath} from 'node:url';
 import {accessSync, constants} from 'node:fs';
 export const codeRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const runtimeRoot = path.resolve(process.env.PREMIERE_ASSISTANT_RUNTIME || path.join(codeRoot, '.local/integrations'));
-export const dataRoot = path.resolve(process.env.PREMIERE_ASSISTANT_DATA || path.join(codeRoot, '.local'));
+export const dataRoot = path.resolve(process.env.PREMIERE_ASSISTANT_STATE || process.env.PREMIERE_ASSISTANT_DATA || path.join(codeRoot, '.local'));
 export const helperPath = name => path.join(codeRoot, 'tools', name);
 export function executable(name, env = process.env) {
   const override = env[`PREMIERE_ASSISTANT_${name.toUpperCase()}`];

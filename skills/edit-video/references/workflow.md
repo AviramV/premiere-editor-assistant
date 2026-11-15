@@ -11,9 +11,9 @@ Available commands:
 | match-takes | `script.json transcript.json matching.json semantic` or `lexical`; semantic requires the optional Python environment. |
 | assess-takes | `config.json`; source-level audio measurements require `extraction.normalize: false`. |
 | audit-coverage | `config.json`; compares script passages, source placements and recorded performances. |
-| deliver | `config.json plan`, then `config.json execute` to create Takes; prepare Takes colors/cameras/audio, then `config.json selects` to derive Selects. |
+| deliver | `config.json plan`, then `config.json execute` to create Takes; prepare Takes cameras/audio and colors when available, then `config.json selects` to derive Selects. |
 | audio-cleanup | `config.json plan` or `execute`; preserves main voice and handles redundant tracks through revision guards. |
-| native-label-session | `config.json`; owns the edit lock while the agent applies each prepared native label group and verifies saved labels. |
+| native-label-session | `config.json`; use only after clip-color capability preflight succeeds. Owns the edit lock while the agent applies each prepared native label group and verifies saved labels. |
 | native-camera-session | `config.json`; explicitly requested camera changes, with native verification. |
 | reconcile-native-labels | `config.json`; inspect a prior interrupted label operation before considering further mutations. |
 | recover-parked-reorder | `config.json`; bounded recovery after proving the current state matches the recorded operation. |
@@ -39,6 +39,7 @@ The delivery configuration has:
   "voiceSources": [],
   "extraTailFrames": 4,
   "takesBoundaryMode": "strict",
+  "clipColoring": {"available": true},
   "planFile": "/absolute/working-directory/delivery-plan.json",
   "evidenceFile": "/absolute/working-directory/delivery-evidence.json",
   "outputs": {
@@ -52,9 +53,23 @@ Replace each example value with observed project state and this run’s working 
 
 An inventory records `sourceRevision` (normalized sequence revision), `transcriptRevision`, and `parts`. Each part has `id`, `hook`, `identityEvidence`, `selectedTakeId`, and `takes`. Each take has `id`, `performanceKey`, `sourceRevision`, `firstWord`, `lastWord`, and `usability: {status, reason}`. These are observed/reviewed decisions, not fields to fill with defaults. Consult `workflow/src/editorial/delivery.mjs` and `speech-boundary.mjs` for additional voice revisions and evidence-bound boundary overrides.
 
-`deliver execute` creates Takes only and writes its identity and the pair revision to `evidenceFile`. Finish Takes native colors, camera choices and audio routing before running `deliver selects` with the same configuration. This duplicates prepared Takes, removes alternatives and trims selected boundaries, clears only the duplicate's inherited markers and adds Selects markers. It performs no Selects reorder or native color application. An optional `takesSequenceId` can use an existing prepared Takes; its geometry must match the current plan. Never change names or prefixes to bypass an uncertain operation.
+`deliver execute` creates Takes only and writes its identity, clip-color capability result and the pair revision to `evidenceFile`. Finish Takes camera choices and audio routing, plus native colors when available, before running `deliver selects` with the same configuration. This duplicates prepared Takes, removes alternatives and trims selected boundaries, clears only the duplicate's inherited markers and adds Selects markers. It performs no Selects reorder or native color application. An optional `takesSequenceId` can use an existing prepared Takes; its geometry must match the current plan. Never change names or prefixes to bypass an uncertain operation.
 
-The `selects` stage reads freshly saved native instances, refuses incomplete or wrong Takes colors, and verifies inherited colors, cameras, audio channel groups, source clocks and effect/keyframe fingerprints. It also checks that Takes and the original source are unchanged. A selected interval outside usable Takes stops planning for inventory reconciliation. A success still leaves actual proxy exports and save/close/reopen acceptance pending; continue those checks before calling the delivery complete. Keep source IDs protected throughout.
+The `selects` stage reads freshly saved native instances and verifies inherited colors, cameras, audio channel groups, source clocks and effect/keyframe fingerprints. With coloring available it also refuses incomplete or wrong Takes part colors and verifies the requested Selects part colors. With coloring unavailable it skips those requested-color gates and records `skipped_unavailable` with zero part-color verifications; it still requires exact inheritance of existing colors and all other native state. It also checks that Takes and the original source are unchanged. A selected interval outside usable Takes stops planning for inventory reconciliation. A success still leaves actual proxy exports and save/close/reopen acceptance pending; continue those checks before calling the delivery complete. Keep source IDs protected throughout.
+
+## Clip-color capability preflight
+
+Before any edits, inspect this session's registered tools and permissions for foreground control of Premiere's Edit → Label menu. If a suitable computer-use tool is already permitted, make a read-only UI inspection to establish that Premiere is accessible. Treat access requiring new authorization as unavailable. CEP/UXP connectivity, shell access, and saved-project label readback alone do not establish the ability to apply instance colors. Claude Code often has no computer-use tool, but another Claude or Codex session may have one; do not hard-code a host or account exclusion or reuse another session's result.
+
+Set `clipColoring.available` from that check in the working delivery configuration and use it for plan, execute and selects. For missing tools, denied/unusable UI access or an inconclusive read-only check, use:
+
+```json
+{"clipColoring": {"available": false, "reason": "No foreground computer-use tool is available in this session"}}
+```
+
+Replace the example reason with the observed limitation. Skip `native-label-session` entirely in that case, continue Takes/Selects and the remaining acceptance checks, and do not request permissions, manual coloring or confirmation. The planned part-color map and part markers remain; existing colors are inherited unchanged. Coloring is intentionally skipped, not an outstanding task. Include one brief final note. If the check succeeds, use `{"clipColoring": {"available": true}}` and perform the normal Takes coloring and saved-instance verification before Selects. Recheck when the environment changes.
+
+The CLI cannot discover the agent's UI tools; the agent must supply this preflight result. Omitted `clipColoring` preserves the strict color requirement for older configurations. Only explicit `available: false` with a nonempty reason enables skipping; color verification failures do not automatically downgrade an available capability. An interrupted or uncertain dispatched label action still follows journal reconciliation before further edits.
 
 ## Transcription configuration
 

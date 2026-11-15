@@ -1,6 +1,7 @@
 import {contentState, digest, predictKeep, predictReorder, revision} from '../premiere/state.mjs';
 import {verifySavedLabels, verifySavedDerivation, savedNativeRevision} from '../premiere/saved-evidence.mjs';
 import {projectClipLinks} from '../premiere/clip-links.mjs';
+import {resolveClipColoring} from './clip-coloring.mjs';
 
 // These ranges are on the finished Takes timeline, not the original recording.
 export function projectSelectsRanges(takesPlan, selectsPlan) {
@@ -98,13 +99,14 @@ export function planSelectsFromTakes({source, takes, takesPlan, selectsPlan}) {
     planId: digest({strategy: 'duplicate_takes_and_keep_v1', takes: revision(takes), takesPlan: takesPlan.planId, selectsPlan: selectsPlan.planId, ranges})};
 }
 
-export async function executeSelectsFromTakes(adapter, {sourceId, takesId, takesPlan, selectsPlan, name, prefix}) {
+export async function executeSelectsFromTakes(adapter, {sourceId, takesId, takesPlan, selectsPlan, name, prefix, clipColoring}) {
+  const coloring = resolveClipColoring(clipColoring);
   const source = await adapter.inspect(sourceId), takes = await adapter.inspect(takesId);
   const plan = planSelectsFromTakes({source, takes, takesPlan, selectsPlan});
   // Read freshly saved native instances, never a user-supplied color checklist.
   const savedSource = await adapter.readSavedSequence(sourceId);
   const savedTakes = await adapter.readSavedSequence(takesId);
-  const takesColors = verifySavedLabels({saved: savedTakes, sequence: takes, targets: plan.takesLabels});
+  const takesColors = coloring.available ? verifySavedLabels({saved: savedTakes, sequence: takes, targets: plan.takesLabels}) : null;
   const copy = await adapter.duplicate({operationId: `${prefix}-copy`, sourceId: takesId, beforeRevision: plan.beforeRevision, name});
   let state = copy.observed;
   if (state.markers.length) {
@@ -126,7 +128,7 @@ export async function executeSelectsFromTakes(adapter, {sourceId, takesId, takes
   state=linked.observed;
   const saved = await adapter.readSavedSequence(state.id);
   const native = verifySavedDerivation({before: savedTakes, saved, takes, selects: state, ranges: plan.keepRanges});
-  const colors = verifySavedLabels({saved, sequence: state, targets: selectsPlan.labels});
+  const colors = coloring.available ? verifySavedLabels({saved, sequence: state, targets: selectsPlan.labels}) : null;
   const takesAfter = await adapter.inspect(takesId), sourceAfter = await adapter.inspect(sourceId);
   if (revision(takesAfter) !== revision(takes) || revision(sourceAfter) !== revision(source) ||
       savedNativeRevision(await adapter.readSavedSequence(takesId)) !== savedNativeRevision(savedTakes) ||
@@ -137,6 +139,7 @@ export async function executeSelectsFromTakes(adapter, {sourceId, takesId, takes
   return {sequenceId: state.id, name, state, kind: 'selects', planId: plan.planId, sections: plan.sections,
     unresolved: [], review: plan.sections.filter(s => s.review).map(s => s.passageId), labelsPending: [],
     construction: plan.construction, takesSequenceId: takesId, sourceRevisionPreserved: true, takesRevisionPreserved: true,
-    nativeVerification: native, linksVerified: linked.clipLinks.verification, colorsVerified: colors.verified, takesColorsVerified: takesColors.verified,
+    clipColoring: {...coloring, status: coloring.available ? 'verified' : 'skipped_unavailable'},
+    nativeVerification: native, linksVerified: linked.clipLinks.verification, colorsVerified: colors?.verified ?? 0, takesColorsVerified: takesColors?.verified ?? 0,
     acceptancePending: ['proxy_review_render', 'save_close_reopen']};
 }

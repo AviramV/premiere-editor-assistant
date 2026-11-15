@@ -1,10 +1,16 @@
 import path from 'node:path';
 import {homedir} from 'node:os';
-import {root,state,location,runtimes,executable,run,exists,runtimeReady,hash,environment} from './common.mjs';
+import {root,state,location,runtimes,executable,run,exists,runtimeReady,hash,environment,beginUse,endUse,recordRelease,persistentState} from './common.mjs';
 import {settingsDirectory} from './settings.mjs';
 import {readFile,readdir} from 'node:fs/promises';
 
-const legacyRuntime=location.legacyDirectory&&await exists(path.join(location.legacyDirectory,'integrations/installation.json'))?{path:location.legacyDirectory,compatibility:'unverified',remedy:'To reuse this installation, run setup with PREMIERE_ASSISTANT_DATA set to this exact directory. Setup verifies it before registering it for both agents. Preserve all existing directories and journals.'}:undefined;
+await beginUse();
+try {
+await recordRelease();
+
+const legacyRuntimes=[];
+for(const directory of new Set([location.legacyDirectory,location.hostLegacyDirectory].filter(Boolean)))if(await exists(path.join(directory,'integrations/installation.json')))legacyRuntimes.push({path:directory,compatibility:'unverified',remedy:'Setup can copy a compatible bridge into the managed store. Preserve this original directory and any configured Python environment.'});
+const legacyRuntime=legacyRuntimes[0];
 const checks=[];
 checks.push({name:'macOS',required:true,ok:process.platform==='darwin'});
 checks.push({name:'Node.js 22+',required:true,ok:Number(process.versions.node.split('.')[0])>=22,version:process.versions.node,path:process.execPath});
@@ -25,7 +31,7 @@ try {
 }
 // Suggest previous environments; never move a venv (its paths may be absolute) or reuse it silently.
 const previousPythonEnvironments=[];
-const bases=new Set([path.dirname(state),path.join(homedir(),'Library/Application Support/Premiere Editor Assistant')]);
+const bases=new Set([path.dirname(state),location.store,path.join(homedir(),'Library/Application Support/Premiere Editor Assistant')]);
 for(const base of bases) {
  let entries=[];try {entries=await readdir(base,{withFileTypes:true});}catch{}
  for(const entry of entries) {
@@ -33,6 +39,11 @@ for(const base of bases) {
   const file=path.join(base,entry.name,'python/bin/python');
   if(file!==localPython&&await exists(file)&&!previousPythonEnvironments.some(candidate=>candidate.path===file))previousPythonEnvironments.push({path:file,compatibility:'unverified',keepDirectoryWhileInUse:true});
  }
+}
+let models=[];try{models=await readdir(path.join(location.store,'models'),{withFileTypes:true});}catch{}
+for(const entry of models)if(entry.isDirectory()&&/^[a-f0-9]{64}$/.test(entry.name)) {
+ const file=path.join(location.store,'models',entry.name,'python/bin/python');
+ if(file!==localPython&&await exists(file))previousPythonEnvironments.push({path:file,compatibility:'unverified',keepDirectoryWhileInUse:true});
 }
 
 const cep=path.join(homedir(),'Library/Application Support/Adobe/CEP/extensions/MCPBridgeCEP');
@@ -59,6 +70,7 @@ else {
 const helpers=[['UXP_guarded_panel_present','guarded-reorder.js','src/premiere/uxp-reorder.cjs'],
  ['UXP_transcript_import_present','import-transcript.js','src/premiere/uxp-transcript.cjs'],
  ['UXP_transcript_format_present','transcript-format.js','src/transcription/premiere-format.cjs'],
+ ['UXP_runtime_location_present','runtime-info.js','src/premiere/uxp-runtime-info.cjs'],
  ['UXP_panel_entrypoint_current','main.js',null]];
 const inspected=[];
 for(const directory of candidates) {
@@ -78,8 +90,9 @@ for(const [index,[name]] of helpers.entries())checks.push({name,required:true,ok
  remedy:'Install the generated CCX through Adobe Creative Cloud, or load the prepared manifest in UXP Developer Tool. For a developer-loaded panel, set PREMIERE_ASSISTANT_UXP_PANEL to its directory for this check.'});
 
 const ready=checks.filter(c=>c.required).every(c=>c.ok);
-console.log(JSON.stringify({status:ready?'dependencies_ready':'setup_needed',dataDirectory:state,runtimeLocation:location,legacyRuntime,executableSettingsDirectory:settingsDirectory(),checks,previousPythonEnvironments,
+console.log(JSON.stringify({status:ready?'dependencies_ready':'setup_needed',dataDirectory:location.directory,setupDirectory:state,persistentStateDirectory:persistentState,runtimeLocation:location,legacyRuntime,legacyRuntimes,executableSettingsDirectory:settingsDirectory(),checks,previousPythonEnvironments,
  uxpInstaller:path.join(state,'premiere-editor-assistant-panel.ccx'),
  livePremiereConnectionVerified:false,codexConnectionsVerified:false,modelWeightsVerified:false,
  next:ready?'Open both panels and a Premiere project, then run smoke --live. After a launcher/configuration change, reload Codex connections or restart Codex and verify both bridges from the chat.':'Resolve required checks, then rerun doctor. Optional local models do not block setup.'},null,2));
 if(!ready)process.exitCode=1;
+}finally{await endUse();}

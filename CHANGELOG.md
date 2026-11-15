@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0
+
+Add a one-time migration and cleanup step for historical 0.1.x installations after the new shared setup is verified. Reuse compatible existing Python environments in place, retain a prior setup for rollback, and remove only support files matched to a verified installation baseline. Archive diagnostic history before removing old copies. Preserve project journals, configured or pinned dependencies, active users, changed files and unknown contents.
+
+Add read-only UXP panel-location provenance and fresh process/configuration checks before historical deletion. Use scoped authorization and inventory receipts to recover interrupted cleanup without following symlinks or deleting newly added evidence. Codex and Claude Code continue to share the same portable package and runtime manager.
+
+The release also includes shared dependency runtimes, independent Python environment paths, persistent application evidence, conservative managed-resource cleanup, the timeline icon and capability-aware clip-color handling.
+
+Validation: all 254 automated tests passed. Packaged upgrade checks used isolated Codex and Claude cache layouts, copies of historical support folders, and CEP/UXP protocol fixtures. They verified shared runtime reuse, cache-pin protection, initial rollback retention and later retirement, preservation of Python and project data, and repeat cleanup. The staged public package reproduced the tested ZIP exactly and validated both catalogs, all manifest versions and equivalent MCP launch settings. These migration checks did not install the new Adobe panel or modify the original installations; actual panel installation and agent connection reload remain part of setup.
+
 ## 0.1.7
 
 Fix expired Premiere object recovery and prevent local MLX checks from crashing when Metal GPU access is unavailable.

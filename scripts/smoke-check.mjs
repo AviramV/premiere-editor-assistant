@@ -42,6 +42,7 @@ export async function checkBridge({backend,live,createClient,createTransport,ret
     const payload=reply.structuredContent?.data||parsed;
     if(backend==='premiere_cep'?!payload?.path:!payload?.appVersion)throw new Error(`${backend} did not return a recognizable live host response`);
     result.liveReadback=reply;
+    if(backend==='premiere_uxp')result.panelPath=typeof payload.panelPath==='string'?payload.panelPath:null;
    }
    return result;
   }finally{await client.close();}

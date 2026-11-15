@@ -3,22 +3,25 @@ import {randomUUID} from 'node:crypto';
 import {mkdir,readFile,writeFile,rename,cp,rm,lstat} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {downloadPinned,checkpoint,retry,atomicJson,treeDigest} from './setup-recovery.mjs';
+import {createLegacyBaseline} from './legacy-migration.mjs';
 
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
+// Adobe panel updates have their own version; ordinary plugin-only releases keep the same runtime.
+export const uxpPanelVersion='0.2.0';
 export async function present(file){try{await lstat(file);return true;}catch(error){if(error.code==='ENOENT')return false;throw error;}}
 const copy=(source,target)=>cp(source,target,{recursive:true,verbatimSymlinks:true});
-export async function provisionRuntime({root,state,runtimes,python,npm,run,env,checkRuntime,patchSha256,report,fetchImpl=fetch,retryOptions={}}) {
+export async function provisionRuntime({root,state,runtimes,python,npm,run,env,checkRuntime,patchSha256,report,fetchImpl=fetch,retryOptions={},workDirectory,downloadsDirectory,identity}) {
  if(await present(runtimes)) {
   await report.step('verify_installed_runtime',()=>checkRuntime(runtimes),'Keep this runtime intact. Inspect the mismatch, or choose a fresh PREMIERE_ASSISTANT_DATA directory and rerun setup.');
   return;
  }
  const lockText=await readFile(path.join(root,'runtime-lock.json')),pins=JSON.parse(lockText),lockSha256=hash(lockText);
  const build=hash(`setup-resume-v1:${lockSha256}:${patchSha256}`).slice(0,24);
- const work=path.join(state,'setup-work-'+build);await mkdir(work,{recursive:true});
+ const work=workDirectory||path.join(state,'setup-work-'+build);await mkdir(work,{recursive:true});
  const options={...report.retryOptions,...retryOptions};
  for(const [name,pin] of Object.entries(pins)) {
   if(!['leancoder','quadlzzz'].includes(name))throw new Error('Unexpected pinned bridge name');
-  const archive=await report.step('download_'+name,()=>downloadPinned(pin,path.join(state,'downloads'),{fetchImpl,...options}),
+  const archive=await report.step('download_'+name,()=>downloadPinned(pin,downloadsDirectory||path.join(state,'downloads'),{fetchImpl,...options}),
    'For a transient network failure, rerun the same setup command; verified downloads are reused. For a checksum mismatch, inspect the source/cache before retrying.');
   const directory=path.join(work,'sources',name);
   await report.step('extract_'+name,()=>checkpoint(work,'extract-'+name,directory,
@@ -44,13 +47,15 @@ export async function provisionRuntime({root,state,runtimes,python,npm,run,env,c
   const manifestFile=path.join(candidate,'quadlzzz/panel/manifest.json');
   const manifest=JSON.parse(await readFile(manifestFile,'utf8'));
   if(manifest.id!=='com.premieremcp.agent')throw new Error('Unexpected UXP panel identity');
+  manifest.version=uxpPanelVersion;
   if(Array.isArray(manifest.host))manifest.host=manifest.host[0];
   await writeFile(manifestFile,JSON.stringify(manifest,null,2)+'\n');
   await copy(path.join(root,'vendor/leancoder/cep-plugin'),path.join(candidate,'cep-panel'));
   await cp(path.join(root,'vendor/leancoder/LICENSE'),path.join(candidate,'leancoder-runtime/LICENSE'));
+  await atomicJson(path.join(candidate,'legacy-baseline.json'),await createLegacyBaseline({root,pins,work,dependencies}));
   const files={};
-  for(const file of ['leancoder-runtime/server/dist/index.js','quadlzzz/mcp/server.js','quadlzzz/panel/main.js','quadlzzz/panel/guarded-reorder.js','quadlzzz/panel/import-transcript.js','quadlzzz/panel/transcript-format.js','quadlzzz/panel/manifest.json'])files[file]=hash(await readFile(path.join(candidate,file)));
-  await atomicJson(path.join(candidate,'installation.json'),{lockSha256,patchSha256,files});
+  for(const file of ['leancoder-runtime/server/dist/index.js','quadlzzz/mcp/server.js','quadlzzz/panel/main.js','quadlzzz/panel/guarded-reorder.js','quadlzzz/panel/import-transcript.js','quadlzzz/panel/transcript-format.js','quadlzzz/panel/runtime-info.js','quadlzzz/panel/manifest.json','legacy-baseline.json'])files[file]=hash(await readFile(path.join(candidate,file)));
+  await atomicJson(path.join(candidate,'installation.json'),{lockSha256,patchSha256,files,...(identity?{runtimeId:identity.id,target:identity.target}:{})});
   await checkRuntime(candidate);
  },'The installed runtime is untouched. Inspect the patch/manifest error; rerun setup after correction. Completed extraction and dependency stages are verified before reuse.');
  await report.step('commit_runtime',async()=>{
@@ -89,7 +94,7 @@ export async function installCep({root,state,target,run,report}) {
   for(const version of [8,9,10,11,12,13,14])await run('/usr/bin/defaults',['write',`com.adobe.CSXS.${version}`,'PlayerDebugMode','1']);
  },'An existing differing CEP panel is preserved. Review and back it up before any replacement. Correct permission/disk-space errors and rerun setup --install-cep; a matching panel is reused.');
 }
-export async function localModels({root,state,python,run,report,retryOptions={}}) {
+export async function localModels({root,state,python,run,report,retryOptions={},receiptFile}) {
  const probe=[path.join(root,'workflow/tools/local_models.py')];
  // GPU denial is not a broken environment: stop before reuse probes or pip work.
  await run(python,[...probe,'--metal-only'],{timeout:15000});
@@ -97,7 +102,7 @@ export async function localModels({root,state,python,run,report,retryOptions={}}
  if(process.env.PREMIERE_ASSISTANT_PYTHON) {
   try{await run(python,probe,{timeout:45000});return {path:python,reused:true,modelWeightsVerified:false};}catch{}
  }
- const receipt=path.join(state,'local-models-installation.json');
+ const receipt=receiptFile||path.join(state,'local-models-installation.json');
  try {
   const prior=JSON.parse(await readFile(receipt,'utf8'));
   if(prior.requirements===requirements){await run(localPython,probe,{timeout:45000});return {path:localPython,reused:true,modelWeightsVerified:false};}

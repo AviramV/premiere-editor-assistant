@@ -20,6 +20,8 @@ const transcriptPatches = [
 for (const [index, patch] of patches.entries()) {
  patch.transcriptCode = transcriptPatches[index];
 }
+const runtimeInfoCode=`${marker} runtime location v1\nconst originalRuntimeEnvironment = commands.env;\ncommands.env = async params => require("./runtime-info.js").withRuntimeLocation(uxp, await originalRuntimeEnvironment(params));\n\n`;
+patches[0].runtimeInfoCode=runtimeInfoCode;
 if(process.argv.slice(2).some(value=>value!=='--installed'))throw new Error('Usage: node tools/install-guarded-reorder.mjs [--installed]');
 if(process.argv.includes('--installed')) {
  const directory=path.join(homedir(),'Library/Application Support/Adobe/UXP/Plugins/External/com.premieremcp.agent_0.1.0');
@@ -35,9 +37,9 @@ for(const patch of patches) {
  const priorBound=patch.code.replace('.max(600)','.max(300)');
  const priorShift=patch.code.replace('deferFinalShift:z.boolean().optional(),','');
  const variants=[patch.code,prior,priorBound,priorShift,priorShift.replace('.max(600)','.max(300)'),priorCheckpoint,priorCheckpoint.replace('deferFinalShift:z.boolean().optional(),',''),priorCheckpoint.replace('.max(600)','.max(300)'),priorCheckpoint.replace('deferFinalShift:z.boolean().optional(),','').replace('.max(600)','.max(300)')].flatMap(code=>[code,code.replace('guarded-reorder.js','guarded-reorder.cjs')]);
- const original=variants.reduce((text,code)=>text.replace(code,''),patch.text.replace(patch.transcriptCode,''));
+ const original=variants.reduce((text,code)=>text.replace(code,''),patch.text.replace(patch.transcriptCode,'').replace(patch.runtimeInfoCode||'',''));
  if(createHash('sha256').update(original).digest('hex')!==patch.hash||!original.includes(patch.anchor))throw new Error(`Unexpected integration revision: ${patch.path}`);
- patch.updated=original.replace(patch.anchor,patch.code+patch.transcriptCode+patch.anchor);
+ patch.updated=original.replace(patch.anchor,patch.code+patch.transcriptCode+(patch.runtimeInfoCode||'')+patch.anchor);
 }
 for(const patch of patches.filter(p=>p.file==='panel/main.js')) {
  if(patch.installed) {
@@ -47,6 +49,7 @@ for(const patch of patches.filter(p=>p.file==='panel/main.js')) {
  await copyFile(path.join(workspace,'src/premiere/uxp-reorder.cjs'),path.join(path.dirname(patch.path),'guarded-reorder.js'));
  await copyFile(path.join(workspace,'src/premiere/uxp-transcript.cjs'),path.join(path.dirname(patch.path),'import-transcript.js'));
  await copyFile(path.join(workspace,'src/transcription/premiere-format.cjs'),path.join(path.dirname(patch.path),'transcript-format.js'));
+ await copyFile(path.join(workspace,'src/premiere/uxp-runtime-info.cjs'),path.join(path.dirname(patch.path),'runtime-info.js'));
 }
 for(const patch of patches)if(patch.updated!==patch.text)await writeFile(patch.path,patch.updated);
 console.log('Guarded reorder and transcript import bridges installed without changing manifest permissions. Reload the UXP panel before live acceptance.');

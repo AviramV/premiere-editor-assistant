@@ -12,7 +12,7 @@ if [ -z "$task_node" ]; then echo "Node.js 22+ is required" >&2; exit 1; fi
 export PPRO_PROXY_HOST=127.0.0.1
 export PPRO_PROXY_PORT="${PPRO_PROXY_PORT:-3001}"
 export PPRO_COMMAND_TIMEOUT_MS="${PPRO_COMMAND_TIMEOUT_MS:-180000}"
-export PPRO_SNAPSHOT_DIR="${PREMIERE_ASSISTANT_DATA:-$task_root/.local}/evaluation/snapshots"
+export PPRO_SNAPSHOT_DIR="${PREMIERE_ASSISTANT_STATE:-${PREMIERE_ASSISTANT_DATA:-$task_root/.local}}/evaluation/snapshots"
 proxy_pid=''
 mcp_pid=''
 cleanup() {

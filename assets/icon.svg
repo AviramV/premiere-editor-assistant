@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <title>Premiere Editor Assistant</title>
+  <rect x="24" y="24" width="464" height="464" rx="112" fill="#6942E8"/>
+  <rect x="120" y="184" width="148" height="40" rx="10" fill="#FFFFFF"/>
+  <rect x="284" y="184" width="108" height="40" rx="10" fill="#B9A6FF"/>
+  <rect x="120" y="248" width="84" height="40" rx="10" fill="#B9A6FF"/>
+  <rect x="220" y="248" width="172" height="40" rx="10" fill="#FFFFFF"/>
+  <rect x="152" y="312" width="200" height="40" rx="10" fill="#FFFFFF"/>
+  <path d="M256 150v228" stroke="#6942E8" stroke-width="32" stroke-linecap="round"/>
+  <path d="M256 150v228" stroke="#9AF4D0" stroke-width="16" stroke-linecap="round"/>
+  <path d="M238 120h36a4 4 0 0 1 4 4v16l-22 22-22-22v-16a4 4 0 0 1 4-4Z" fill="#9AF4D0"/>
+</svg>
