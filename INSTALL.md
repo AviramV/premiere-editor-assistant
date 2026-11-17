@@ -1,4 +1,4 @@
-# Premiere Editor Assistant 0.2.0
+# Premiere Editor Assistant 0.2.1
 
 A local macOS plugin for editable Takes and Selects, with Project-panel organization and a separate OMF sound-handoff skill. English editorial input is validated; optional local transcription requires Apple Silicon. Premiere 26.3.2 was the original tested host.
 
@@ -79,7 +79,7 @@ Ask **organize-project** to organize your open project into the numbered bins fr
 
 ## Start a video
 
-Ask the plugin to prepare Takes and Selects, provide the Premiere project/source sequence and storyboard, and choose a project working folder. If proxies are attached, it enables and verifies the proxy toggle. If they are missing, it asks whether you will attach them or want it to attach proxies from a location you provide.
+Ask the plugin to prepare Takes and Selects, provide the Premiere project/source sequence and storyboard, and choose a project working folder. If proxies are attached, it enables and verifies the proxy toggle. If they are missing, it offers to create and attach them, attach existing proxies from a location you provide, wait for your manual preparation, or use originals when explicitly chosen. New 16:9 proxies default to 1920×1080 QuickTime Apple ProRes 422 standard. The shared [create-proxies skill](skills/create-proxies/SKILL.md) supports verified FFmpeg hardware/software and Premiere/Media Encoder routes. You can also request proxy creation separately from editing; a creation request covers validation, attachment and enabling playback unless you ask for files only.
 
 After external transcription, the workflow imports timed words onto the exact original media item as a native Premiere transcript, verifies readback and saves. Matching native transcripts are reused; conflicts require reconciliation. Editors can later use Premiere’s native Create captions from transcript dialog.
 

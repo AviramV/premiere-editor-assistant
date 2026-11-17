@@ -1,0 +1,4 @@
+interface:
+  display_name: "Create Premiere Proxies"
+  short_description: "Create and attach verified ProRes editing proxies"
+  default_prompt: "Use $create-proxies to create and attach 1080p ProRes 422 proxies for my footage."

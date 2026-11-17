@@ -2,7 +2,7 @@
 
 A local Agent Plugins package for Adobe Premiere Pro on macOS, installable in Codex and Claude Code. It creates two editable sequences: **Takes**, containing usable takes and attempts, and **Selects**, containing the selected takes. Both include every independent part, put hooks first, and use matching colors for the same parts.
 
-Current release: **0.2.0**. See [CHANGELOG.md](CHANGELOG.md) for release notes. The plugin supports Project-panel organization, native transcript preparation, Selects derived from Takes, and OMF sound handoff.
+Current release: **0.2.1**. See [CHANGELOG.md](CHANGELOG.md) for release notes. The plugin supports Project-panel organization, native transcript preparation, Selects derived from Takes, and OMF sound handoff.
 
 ## Install from GitHub
 
@@ -27,9 +27,9 @@ Start a new Claude Code session after installation. In either agent, ask:
 
 > Set up Premiere Editor Assistant on this Mac.
 
-The repository includes the built workflow: no development build is required. To pin this release in Codex, add `--ref v0.2.0` to its marketplace command.
+The repository includes the built workflow: no development build is required. To pin this release in Codex, add `--ref v0.2.1` to its marketplace command.
 
-Alternatively, download the ZIP and its SHA-256 file from [Releases](https://github.com/AviramV/premiere-editor-assistant/releases), verify with `shasum -a 256 -c premiere-editor-assistant-0.2.0.zip.sha256`, unzip it into a permanent folder, and follow [INSTALL.md](INSTALL.md).
+Alternatively, download the ZIP and its SHA-256 file from [Releases](https://github.com/AviramV/premiere-editor-assistant/releases), verify with `shasum -a 256 -c premiere-editor-assistant-0.2.1.zip.sha256`, unzip it into a permanent folder, and follow [INSTALL.md](INSTALL.md).
 
 ## Requirements and setup
 
@@ -45,12 +45,16 @@ The setup skill provisions pinned bridge runtimes and guides installation of the
 - Include all recognized independent parts, including on-topic wording variations.
 - Trim leading silence and restarts; preserve whole words and add 3–5 trailing frames where safe.
 - Identify the closest main voice microphone, assess recorder channels first, and mute unsuitable tracks. Transcribe the main voice track.
-- When proxies are attached and available, use them and verify Premiere’s proxy toggle is on. If proxies are missing, ask whether the user will attach them or wants assistance with a provided location.
+- When proxies are attached and available, use them and verify Premiere’s proxy toggle is on. If proxies are missing, offer creation and attachment (16:9 default: 1920×1080 ProRes 422 standard), existing-file attachment, manual preparation or explicitly chosen originals.
 - Import every external timed transcript onto its exact original media item, verify native words/timings and save. Reuse matching native transcripts and reconcile conflicts before continuing.
 - Keep project data outside the plugin and verify edits against the current Premiere state.
 - Prepare and verify Takes first, then derive Selects by duplicating Takes and removing alternatives and reviewed excess at selected boundaries. Selects inherits prepared native state without another reorder or color pass.
 
 See [the full delivery policy](skills/edit-video/references/delivery-policy.md). Footage, Premiere projects, credentials, and development history are excluded. External services are not configured automatically; Gemini integration remains deferred.
+
+## Proxy creation
+
+Ask **create-proxies** to create and attach editing proxies, independently or before editing. Missing-proxy choices include assistant creation, attachment of existing files, manual preparation or explicitly chosen originals. New 16:9 proxies default to **1920×1080 QuickTime Apple ProRes 422 standard**, preserving timing, orientation, color and recognized audio channels. Available attached proxies are reused. The shared skill supports FFmpeg with a verified VideoToolbox hardware encoder, a software fallback, and Premiere/Adobe Media Encoder; it validates outputs and native attachment before enabling and verifying proxy playback. See [the proxy skill](skills/create-proxies/SKILL.md).
 
 ## Native transcripts and captions
 

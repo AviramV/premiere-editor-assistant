@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.1
+
+Add a shared create-proxies skill for standalone requests and for missing proxies encountered during editing or content review. Offer assistant creation and attachment alongside existing-file attachment, manual preparation and explicitly chosen originals. New 16:9 proxies default to 1920×1080 QuickTime Apple ProRes 422 standard, preserving source timing, orientation, color, timecode and Premiere-recognized audio layout. Reuse available attached proxies.
+
+Document FFmpeg VideoToolbox hardware encoding, the software ProRes fallback and Premiere/Adobe Media Encoder workflows. Distinguish an AME handoff from a completed, validated and attached proxy. Verify output metadata, native source associations and proxy playback, and preserve the shared project journal and existing media.
+
+Validation covers the skill, package and publishing checks, matching portable/Codex/Claude metadata, both marketplace catalogs, equivalent MCP launch settings and byte-identical staged archive reproduction. This is a workflow and packaging update; no new native encoding benchmark was performed. The Adobe panels and shared bridge runtime are unchanged.
+
 ## 0.2.0
 
 Add a one-time migration and cleanup step for historical 0.1.x installations after the new shared setup is verified. Reuse compatible existing Python environments in place, retain a prior setup for rollback, and remove only support files matched to a verified installation baseline. Archive diagnostic history before removing old copies. Preserve project journals, configured or pinned dependencies, active users, changed files and unknown contents.

@@ -1,7 +1,7 @@
 {
   "name": "premiere-editor-assistant",
-  "version": "0.2.0",
-  "description": "A local Premiere Pro workflow for project organization, usable Takes, complete Selects, native transcripts and OMF sound handoff.",
+  "version": "0.2.1",
+  "description": "A local Premiere Pro workflow for proxy creation, project organization, usable Takes, complete Selects, native transcripts and OMF sound handoff.",
   "author": {
     "name": "AviramV"
   }

@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "premiere-editor-assistant",
-  "version": "0.2.0",
-  "description": "A local Premiere Pro workflow for project organization, usable Takes, complete Selects, native transcripts and OMF sound handoff.",
+  "version": "0.2.1",
+  "description": "A local Premiere Pro workflow for proxy creation, project organization, usable Takes, complete Selects, native transcripts and OMF sound handoff.",
   "author": {
     "name": "AviramV"
   },
@@ -16,7 +16,7 @@
       "interface": {
         "displayName": "Premiere Editor Assistant",
         "shortDescription": "Edit and organize in Premiere",
-        "longDescription": "Organize Project-panel bins and media display names using a numbered folder schema. Prepare editable, script-aware Takes and Selects with proxy playback, main-voice transcription imported into Premiere, shared part colors and verified edit recovery. Keep native transcripts ready for later caption creation. Export OMF sound handoffs from separate audio-only copies. Local macOS workflow with guided Premiere bridge setup.",
+        "longDescription": "Organize Project-panel bins and media display names using a numbered folder schema. Prepare editable, script-aware Takes and Selects with validated proxy creation and playback, main-voice transcription imported into Premiere, shared part colors and verified edit recovery. Keep native transcripts ready for later caption creation. Export OMF sound handoffs from separate audio-only copies. Local macOS workflow with guided Premiere bridge setup.",
         "category": "Productivity",
         "logo": "./assets/icon.png",
         "composerIcon": "./assets/icon.png",
@@ -26,6 +26,7 @@
         ],
         "defaultPrompt": [
           "Set up Premiere Editor Assistant on this Mac.",
+          "Create and attach 1080p ProRes 422 proxies for my footage.",
           "Create Takes and Selects from my Premiere sequence and storyboard.",
           "Export an OMF sound handoff from my Premiere sequence."
         ]
