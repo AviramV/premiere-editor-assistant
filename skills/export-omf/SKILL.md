@@ -9,6 +9,8 @@ Use the plugin's registered `premiere_cep` tools for the requested sound handoff
 
 ## Inputs and defaults
 
+Before native writes, pass the shared [chat readiness gate](../setup/references/chat-readiness.md) for `export-omf` with this chat's installed-plugin schemas, bindings and read-only project response. A successful standalone smoke check does not establish chat adoption. Missing required tools stop native changes while independent preparation continues.
+
 Resolve sequence names to unique IDs in the open project and obtain an output directory. Ask only for missing or ambiguous inputs; a request to prepare/export authorizes the described duplicate cleanup and export. Carry forward explicit preferences from this session.
 
 Default preset: 48,000 Hz, 24-bit WAV, embedded audio, trim to used media with 5-second handles, include pan. These are workflow defaults, not a universal delivery specification. Let the user override them. Convert handles using the sequence's actual frame duration, rounding to the nearest frame and reporting fractional-rate rounding. Do not hardcode 125 frames.

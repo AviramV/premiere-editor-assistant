@@ -28,6 +28,7 @@ if [ -z "$plugin_node" ]; then
   exit 1
 fi
 case "${1:-}" in
-  setup|doctor|configure|run|smoke|cleanup) script="$1"; shift; exec "$plugin_node" "$plugin_root/scripts/$script.mjs" "$@" ;;
-  *) exec "$plugin_node" "$plugin_root/scripts/bridge.mjs" "$@" ;;
+  premiere_cep|premiere_uxp) exec "$plugin_node" "$plugin_root/scripts/lookup-server.mjs" "$@" ;;
+  setup|doctor|configure|run|smoke|cleanup|inspect-tools|check-chat|activation-advice) script="$1"; shift; exec "$plugin_node" "$plugin_root/scripts/$script.mjs" "$@" ;;
+  *) echo "Unknown Premiere Editor Assistant command: ${1:-}" >&2; exit 2 ;;
 esac

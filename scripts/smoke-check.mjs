@@ -1,4 +1,5 @@
 import {retry,pause} from './setup-recovery.mjs';
+import {readToolCatalog} from './tool-catalog.mjs';
 
 // Keep the broker alive while the Adobe panel reconnects. Only read-only host probes
 // are repeated here; transport initialization retains the separate bounded retry policy.
@@ -31,7 +32,7 @@ export async function checkBridge({backend,live,createClient,createTransport,ret
   const client=createClient();
   try {
    await client.connect(createTransport());
-   const {tools}=await client.listTools();
+   const {tools}=await readToolCatalog(client);
    const required=backend==='premiere_cep'?['get_project_info','get_full_sequence_info']:['ppro_env','ppro_guarded_reorder','ppro_transcript_import'];
    for(const name of required)if(!tools.some(tool=>tool.name===name))throw new Error(`Packaged ${backend} is missing ${name}`);
    const result={backend,status:'handshake_verified',tools:tools.length};

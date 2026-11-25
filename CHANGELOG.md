@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.2
+
+Add complete MCP catalogue inspection and comparison with actual chat bindings. Native workflow readiness checks require fresh schemas, callable commands and exact-project read-only evidence. The organizer refuses to start its writer journal when this evidence is incomplete, and server smoke checks explicitly leave chat adoption pending.
+
+Update the pinned CEP runtime and matching panel to 1.31.0. Prepare UXP panel 0.2.1 using the supported host-version API and loaded-panel provenance. Qualify isolated startup and read-only checks on Premiere 27.0.0 while preserving installed panels and editing projects. Keep Adobe panel versions independent during plugin release preparation, and synchronize valid starter prompts across the portable and Codex manifests.
+
+Recover a disappeared shared UXP proxy without restarting the surviving MCP session. Preserve external listeners, clean up owned child processes and keep custom loopback port settings consistent with the MCP client. Never replay an interrupted tool request. Regressions cover an exiting proxy owner, a proxy crash, concurrent clients, listener preservation, cleanup and interrupted requests.
+
+Use compact workflow commands and on-demand activation under original per-command permissions. Setup checks live activation before offering an optional Codex feature change.
+
 ## 0.2.1
 
 Add a shared create-proxies skill for standalone requests and for missing proxies encountered during editing or content review. Offer assistant creation and attachment alongside existing-file attachment, manual preparation and explicitly chosen originals. New 16:9 proxies default to 1920×1080 QuickTime Apple ProRes 422 standard, preserving source timing, orientation, color, timecode and Premiere-recognized audio layout. Reuse available attached proxies.

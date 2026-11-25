@@ -11,6 +11,14 @@ var POLL_MS = 200;
 var HEARTBEAT_MS = 1000;
 var heartbeatInterval = null;
 
+// The visible panel exists only while a project is open: closing the last
+// project unloads it, and any reply it owes is lost. The headless instance
+// survives, so it advertises itself and takes commands named *.headless.jsx.
+var IS_HEADLESS_ENGINE = false;
+try { IS_HEADLESS_ENGINE = /\.headless$/.test(String(window.__adobe_cep__.getExtensionId())); } catch (e) {}
+var HEADLESS_ENGINE_FILE = "headless-engine.json";
+var HEADLESS_ENGINE_FRESH_MS = 3000;
+
 // ---- Logging ----
 function log(msg, cls) {
   var el = document.getElementById("log");
@@ -188,12 +196,25 @@ function ensureDir(dir) {
   return bridgeDirectorySecurity.ensurePrivateBridgeDirectory(dir);
 }
 
+function headlessEngineIsLive() {
+  try {
+    var age = new Date().getTime() - fs.statSync(path.join(tempDir, HEADLESS_ENGINE_FILE)).mtime.getTime();
+    return age >= 0 && age < HEADLESS_ENGINE_FRESH_MS;
+  } catch (e) {
+    return false;
+  }
+}
+
 function listCommandFiles() {
   try {
     if (!fs.existsSync(tempDir)) return [];
     var files = fs.readdirSync(tempDir);
+    // Leave headless-routed commands to a live headless engine; without one,
+    // run them here as older connectors do.
+    var leaveHeadless = !IS_HEADLESS_ENGINE && headlessEngineIsLive();
     return files
       .filter(function (f) { return f.indexOf("cmd_") === 0 && f.slice(-4) === ".jsx"; })
+      .filter(function (f) { return !(leaveHeadless && f.slice(-13) === ".headless.jsx"); })
       .sort(); // process in order
   } catch (e) {
     return [];
@@ -209,25 +230,23 @@ function readFile(filePath) {
 }
 
 function writeFile(filePath, content) {
-  try {
-    fs.writeFileSync(filePath, content, "utf-8");
-    return true;
-  } catch (e) {
-    log("Error writing " + filePath + ": " + e.message, "err");
-    return false;
-  }
+  return writeResponseFile(filePath, content);
 }
 
 // Publish responses atomically so the MCP process never sees a partially-written
 // JSON file. The staging suffix is not a response filename the server will read.
 function writeResponseFile(filePath, content) {
   var stagedPath = filePath + ".staged";
+  var stagedOwned = false;
   try {
-    fs.writeFileSync(stagedPath, content, "utf-8");
+    var descriptor = fs.openSync(stagedPath, "wx", 384);
+    stagedOwned = true;
+    try { fs.writeFileSync(descriptor, content, "utf-8"); }
+    finally { fs.closeSync(descriptor); }
     fs.renameSync(stagedPath, filePath);
     return true;
   } catch (e) {
-    deleteFile(stagedPath);
+    if (stagedOwned) deleteFile(stagedPath);
     log("Error publishing " + filePath + ": " + e.message, "err");
     return false;
   }
@@ -245,14 +264,34 @@ function writeBridgeHeartbeat() {
   if (!tempDir) return;
   var heartbeatPath = path.join(tempDir, "bridge-heartbeat.json");
   var stagedPath = heartbeatPath + "." + ENGINE_ID + ".staged";
+  var stagedOwned = false;
   try {
-    fs.writeFileSync(stagedPath, JSON.stringify({
+    var descriptor = fs.openSync(stagedPath, "wx", 384);
+    stagedOwned = true;
+    try { fs.writeFileSync(descriptor, JSON.stringify({
       protocolVersion: 1,
+      commandSchemaVersion: 1,
+      receiptVersion: 1,
       state: bridgeRunning ? "running" : "waiting"
-    }), "utf-8");
+    }), "utf-8"); }
+    finally { fs.closeSync(descriptor); }
     fs.renameSync(stagedPath, heartbeatPath);
   } catch (e) {
-    deleteFile(stagedPath);
+    if (stagedOwned) deleteFile(stagedPath);
+  }
+  if (IS_HEADLESS_ENGINE && bridgeRunning) {
+    var enginePath = path.join(tempDir, HEADLESS_ENGINE_FILE);
+    var engineStaged = enginePath + "." + ENGINE_ID + ".staged";
+    var engineStagedOwned = false;
+    try {
+      var engineDescriptor = fs.openSync(engineStaged, "wx", 384);
+      engineStagedOwned = true;
+      try { fs.writeFileSync(engineDescriptor, JSON.stringify({ engine: ENGINE_ID }), "utf-8"); }
+      finally { fs.closeSync(engineDescriptor); }
+      fs.renameSync(engineStaged, enginePath);
+    } catch (engineError) {
+      if (engineStagedOwned) deleteFile(engineStaged);
+    }
   }
 }
 
@@ -317,6 +356,26 @@ function processOneCommand(cmdFileName) {
   var id = cmdFileName.replace("cmd_", "").replace(".jsx", "");
   var resFilePath = path.join(tempDir, "res_" + id + ".json");
 
+  // Panel-side commands (list/open extensions) need this panel's CEP runtime, not
+  // ExtendScript. They are answered here, synchronously, with the same reply file.
+  if (typeof MCPPanelCommands !== "undefined" && MCPPanelCommands.isPanelCommand(script)) {
+    log("Panel command: " + cmdFileName, "cmd");
+    var panelResult = MCPPanelCommands.run(script, typeof window !== "undefined" ? window.__adobe_cep__ : null);
+    commandCount++;
+    try {
+      writeResponseFile(resFilePath, JSON.stringify(panelResult));
+    } finally {
+      commandInFlight = false;
+    }
+    try {
+      var panelCount = document.getElementById("cmdCount");
+      if (panelCount) panelCount.textContent = commandCount;
+      log(panelResult.success ? "Result received" : "Command failed", panelResult.success ? "ok" : "err");
+    } catch (panelUiError) {}
+    if (bridgeRunning) processCommands();
+    return;
+  }
+
   log("Executing: " + cmdFileName + " (" + script.length + " chars)", "cmd");
 
   // While evalScript is in flight, heartbeat a busy file so the MCP server can
@@ -327,28 +386,30 @@ function processOneCommand(cmdFileName) {
   // Only starts after 2s, so fast commands never touch the extra file.
   var busyFilePath = path.join(tempDir, "busy_" + id + ".json");
   var startedAt = new Date().getTime();
+  var busyOwned = false;
   var busyTimer = setInterval(function () {
-    writeFile(busyFilePath, '{"id":"' + id + '","elapsedMs":' + (new Date().getTime() - startedAt) + "}");
+    if (writeFile(busyFilePath, '{"id":"' + id + '","elapsedMs":' + (new Date().getTime() - startedAt) + "}")) busyOwned = true;
   }, 2000);
 
   executeScript(script, function (result) {
     clearInterval(busyTimer);
-    deleteFile(busyFilePath);
+    if (busyOwned) deleteFile(busyFilePath);
     commandCount++;
-    document.getElementById("cmdCount").textContent = commandCount;
 
     var response;
+    var responseIsError = false;
     try {
       // ExtendScript returns a string; try to parse it as JSON
       if (result && result !== "undefined" && result !== "null") {
         // Check if it's already valid JSON
         var parsed = JSON.parse(result);
         response = JSON.stringify(parsed);
-        log("Result: OK", "ok");
+        responseIsError = parsed && parsed.success === false;
       } else {
         // An empty result means evalScript gave us nothing back. That is a bridge
         // failure, not a successful command with no data — reporting it as "OK" is
         // what made this so hard to diagnose. Say so.
+        responseIsError = true;
         response = JSON.stringify({
           success: false,
           error:
@@ -357,28 +418,35 @@ function processOneCommand(cmdFileName) {
             "). The script may not have run. If every command does this, the CEP panel is stale — " +
             "close and reopen it (a reload is not enough), or reinstall the extension.",
         });
-        log("Result: EMPTY — evalScript returned nothing (see response file)", "err");
       }
     } catch (e) {
       // If result isn't JSON, wrap it
       // "EvalScript error." is CEP's generic message when the host script throws
       // outside its own try/catch or does not parse. It is a failure, not data.
       if (result && (result.indexOf("Error") === 0 || /^EvalScript error/i.test(result))) {
+        responseIsError = true;
         response = JSON.stringify({
           success: false,
           error: /^EvalScript error/i.test(result)
             ? "Premiere could not run the generated script (" + result + "). No result was produced; treat the command as failed."
             : result,
         });
-        log("Result: " + result, "err");
       } else {
         response = JSON.stringify({ success: true, data: result });
-        log("Result: OK (raw)", "ok");
       }
     }
 
-    writeResponseFile(resFilePath, response);
-    commandInFlight = false;
+    // Publish the reply before touching panel UI that may disappear on close.
+    try {
+      writeResponseFile(resFilePath, response);
+    } finally {
+      commandInFlight = false;
+    }
+    try {
+      var countElement = document.getElementById("cmdCount");
+      if (countElement) countElement.textContent = commandCount;
+      log(responseIsError ? "Command failed" : "Result received", responseIsError ? "err" : "ok");
+    } catch (panelUiError) {}
     // Continue without waiting for the next poll interval, preserving FIFO
     // ordering while minimizing queue handoff latency.
     if (bridgeRunning) processCommands();
@@ -526,7 +594,7 @@ function checkForUpdates() {
     MCPBridgeUpdater.LATEST_PACKAGE_API,
     {
       headers: {
-        Accept: "application/vnd.npm.install-v1+json",
+        Accept: MCPBridgeUpdater.LATEST_PACKAGE_ACCEPT,
         "User-Agent": "premiere-pro-mcp-connector/" + MCPBridgeUpdater.CURRENT_VERSION,
       },
     },

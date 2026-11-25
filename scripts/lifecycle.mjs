@@ -81,7 +81,7 @@ export async function withStoreLock(store,action) {
  let lock;
  for(let attempt=0;attempt<1200;attempt++) {
   try{lock=await acquireSetupLock(store);break;}
-  catch(error){if(!/still running|Another lock recovery|acquired the lock first/.test(error.message)||attempt===1199)throw error;await pause(25);}
+  catch(error){if(!/still running|Another lock recovery|acquired the lock first|no readable ownership record/.test(error.message)||attempt===1199)throw error;await pause(25);}
  }
  try{return await action();}finally{await lock.release();}
 }

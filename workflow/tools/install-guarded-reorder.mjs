@@ -6,6 +6,20 @@ import {workspace} from '../src/premiere/transport.mjs';
 import path from 'node:path';
 const base=path.join(runtimeRoot,'quadlzzz');
 const marker='// project-owned guarded reorder v1';
+const upstreamHostVersion=`function appVersion() {
+  const candidates = [
+    ["ppro.Application.version", () => ppro.Application?.version],
+    ["uxp.host.version", () => uxp?.host?.version],
+    ["uxp.host.name+version", () => (uxp?.host ? \`\${uxp.host.name} \${uxp.host.version}\` : undefined)],
+  ];
+  for (const [source, get] of candidates) {
+    let v;
+    try { v = get(); } catch (e) { continue; }
+    if (v) return { version: String(v), source };
+  }
+  return { version: "unknown", source: "none" };
+}`;
+const hostVersion=`function appVersion() { return require("./runtime-info.js").readHostVersion(uxp); }`;
 const patches=[
  {file:'panel/main.js',hash:'d5a9c8c7ce3607abaa2c44dd3aa6f0c90a2522ceac25f094b95d3b495469b742',anchor:'async function handleCommand(msg) {',
   code:`${marker}\ncommands["timeline.guardedReorder"] = params => require("./guarded-reorder.js").guardedReorder(ppro, params);\n\n`},
@@ -37,9 +51,11 @@ for(const patch of patches) {
  const priorBound=patch.code.replace('.max(600)','.max(300)');
  const priorShift=patch.code.replace('deferFinalShift:z.boolean().optional(),','');
  const variants=[patch.code,prior,priorBound,priorShift,priorShift.replace('.max(600)','.max(300)'),priorCheckpoint,priorCheckpoint.replace('deferFinalShift:z.boolean().optional(),',''),priorCheckpoint.replace('.max(600)','.max(300)'),priorCheckpoint.replace('deferFinalShift:z.boolean().optional(),','').replace('.max(600)','.max(300)')].flatMap(code=>[code,code.replace('guarded-reorder.js','guarded-reorder.cjs')]);
- const original=variants.reduce((text,code)=>text.replace(code,''),patch.text.replace(patch.transcriptCode,'').replace(patch.runtimeInfoCode||'',''));
+ const original=variants.reduce((text,code)=>text.replace(code,''),patch.text.replace(patch.transcriptCode,'').replace(patch.runtimeInfoCode||'','').replace(hostVersion,upstreamHostVersion));
  if(createHash('sha256').update(original).digest('hex')!==patch.hash||!original.includes(patch.anchor))throw new Error(`Unexpected integration revision: ${patch.path}`);
+ if(patch.file==='panel/main.js'&&!original.includes(upstreamHostVersion))throw new Error('Pinned UXP host-version function is missing');
  patch.updated=original.replace(patch.anchor,patch.code+patch.transcriptCode+(patch.runtimeInfoCode||'')+patch.anchor);
+ if(patch.file==='panel/main.js')patch.updated=patch.updated.replace(upstreamHostVersion,hostVersion);
 }
 for(const patch of patches.filter(p=>p.file==='panel/main.js')) {
  if(patch.installed) {

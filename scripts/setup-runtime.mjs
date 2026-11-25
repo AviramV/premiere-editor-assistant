@@ -7,7 +7,7 @@ import {createLegacyBaseline} from './legacy-migration.mjs';
 
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 // Adobe panel updates have their own version; ordinary plugin-only releases keep the same runtime.
-export const uxpPanelVersion='0.2.0';
+export const uxpPanelVersion='0.2.1';
 export async function present(file){try{await lstat(file);return true;}catch(error){if(error.code==='ENOENT')return false;throw error;}}
 const copy=(source,target)=>cp(source,target,{recursive:true,verbatimSymlinks:true});
 export async function provisionRuntime({root,state,runtimes,python,npm,run,env,checkRuntime,patchSha256,report,fetchImpl=fetch,retryOptions={},workDirectory,downloadsDirectory,identity}) {
@@ -42,6 +42,8 @@ export async function provisionRuntime({root,state,runtimes,python,npm,run,env,c
   }
   await rm(candidate,{recursive:true,force:true});await mkdir(candidate);
   await copy(path.join(work,'sources/leancoder'),path.join(candidate,'leancoder-runtime'));
+  const serverPackage=JSON.parse(await readFile(path.join(candidate,'leancoder-runtime/server/package.json'),'utf8'));
+  if(serverPackage.version!==pins.leancoder.version)throw new Error('Pinned CEP runtime is missing its matching server package version');
   await copy(dependencies,path.join(candidate,'quadlzzz'));
   await run(process.execPath,[path.join(root,'workflow/tools/install-guarded-reorder.mjs')],{env:{...env,PREMIERE_ASSISTANT_RUNTIME:candidate}});
   const manifestFile=path.join(candidate,'quadlzzz/panel/manifest.json');
@@ -54,7 +56,7 @@ export async function provisionRuntime({root,state,runtimes,python,npm,run,env,c
   await cp(path.join(root,'vendor/leancoder/LICENSE'),path.join(candidate,'leancoder-runtime/LICENSE'));
   await atomicJson(path.join(candidate,'legacy-baseline.json'),await createLegacyBaseline({root,pins,work,dependencies}));
   const files={};
-  for(const file of ['leancoder-runtime/server/dist/index.js','quadlzzz/mcp/server.js','quadlzzz/panel/main.js','quadlzzz/panel/guarded-reorder.js','quadlzzz/panel/import-transcript.js','quadlzzz/panel/transcript-format.js','quadlzzz/panel/runtime-info.js','quadlzzz/panel/manifest.json','legacy-baseline.json'])files[file]=hash(await readFile(path.join(candidate,file)));
+  for(const file of ['leancoder-runtime/server/dist/index.js','leancoder-runtime/server/package.json','quadlzzz/mcp/server.js','quadlzzz/panel/main.js','quadlzzz/panel/guarded-reorder.js','quadlzzz/panel/import-transcript.js','quadlzzz/panel/transcript-format.js','quadlzzz/panel/runtime-info.js','quadlzzz/panel/manifest.json','legacy-baseline.json'])files[file]=hash(await readFile(path.join(candidate,file)));
   await atomicJson(path.join(candidate,'installation.json'),{lockSha256,patchSha256,files,...(identity?{runtimeId:identity.id,target:identity.target}:{})});
   await checkRuntime(candidate);
  },'The installed runtime is untouched. Inspect the patch/manifest error; rerun setup after correction. Completed extraction and dependency stages are verified before reuse.');

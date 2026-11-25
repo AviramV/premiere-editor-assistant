@@ -19,7 +19,7 @@ The bundled helper only manages local coordination and records evidence supplied
 Start it as a persistent terminal process, with input kept open:
 
 ```sh
-node "/absolute/plugin/skills/organize-project/scripts/session.mjs" "/absolute/project.prproj" "/absolute/project-journal"
+node "/absolute/plugin/skills/organize-project/scripts/session.mjs" "/absolute/project.prproj" "/absolute/project-journal" "/absolute/project-evidence/chat-inventory.json"
 ```
 
 Wait for its JSON `ready` response before any project write, including save or a temporary proxy-toggle change. Keep that process alive until the final checks. It exclusively holds the same `writer.lock` file used by the coordinator, with its real live PID, and writes an `organize_project` entry into the shared `journal.json`. Existing `dispatched`, `indeterminate` or `ui_pending` entries block startup. An existing lock is never automatically removed by this helper.

@@ -8,9 +8,13 @@ Keep Premiere running during normal editing. A timeout, disconnected bridge or e
 2. Check whether Premiere is busy with a modal dialog, export, save or an outstanding edit. Allow active work to finish; do not reload a panel or close the project while an operation could still be running. Use bounded read-only checks when the host can answer.
 3. Probe the affected bridge independently. A responding CEP bridge does not prove UXP is healthy, or vice versa. When both respond, inspect the exact target and reconcile actual state with the journal. Do not restart a healthy host to clear an editorial mismatch, unsupported operation, missing permissions, wrong target, missing proxy or incomplete transcript.
 
+The compact CEP fallback includes `get_bridge_telemetry`, `inspect_operation_recovery` and `acknowledge_operation_recovery`. When the bridge reports a recovery requirement, inspect the matching backend, affected project, operation and current host state. Use the acknowledgment only after reconciling the observed result, with the exact current recovery and host-state revisions. Existing per-command approval rules apply. A denied acknowledgment leaves the recovery requirement in place.
+
 ## Recover the smallest affected component
 
 For a connection failure with no operation in flight, reconnect the affected agent MCP connection and verify it. If its Premiere panel is disconnected, reopen that panel and probe again. Use the installation-specific panel reload mechanism when needed. Avoid reinstalling or launching duplicate bridges as a connection repair. A change to the agent's startup configuration concerns its connections, not a Premiere application restart.
+
+The managed UXP launcher can replace a disappeared local proxy while keeping its MCP connection open, including when another chat owned the proxy. Allow the panel to reconnect and verify it with a read-only probe. Listener recovery is not proof of panel readiness and does not resolve a tool list missing from the chat. Interrupted tool requests are never replayed automatically; preserve their evidence and reconcile native state before any further mutation.
 
 For expired native objects, reacquire the project, sequence, tracks and clips from the live host. The guarded reorder refreshes its project/sequence/track chain for each bounded readback attempt and reads final duration through a fresh sequence. These retries are read-only; failed clone, removal and shift mutations are never automatically repeated. Persistent failure leaves the operation uncertain for reconciliation.
 

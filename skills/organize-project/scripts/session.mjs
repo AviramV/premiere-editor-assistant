@@ -3,6 +3,7 @@ import {fileURLToPath} from 'node:url';
 import {mkdir,open,readFile,writeFile,rename,rm,realpath} from 'node:fs/promises';
 import {randomUUID} from 'node:crypto';
 import {createInterface} from 'node:readline';
+import {requireChatReadiness} from '../../../scripts/chat-readiness.mjs';
 
 const emit = value => process.stdout.write(JSON.stringify(value)+'\n');
 const pending = new Set(['dispatched','indeterminate','ui_pending']);
@@ -10,10 +11,12 @@ const object = value => value && typeof value==='object' && !Array.isArray(value
 const inside = (parent,child) => child===parent || child.startsWith(parent+path.sep);
 const pluginRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../../..');
 
-export async function runSession(projectPath,directory) {
+export async function runSession(projectPath,directory,inventoryPath) {
  if(!path.isAbsolute(projectPath||'') || path.extname(projectPath).toLowerCase()!=='.prproj' || !path.isAbsolute(directory||''))throw Error('Exact absolute .prproj path and shared journal directory required');
  projectPath=path.resolve(projectPath);directory=path.resolve(directory);
  if(inside(pluginRoot,directory))throw Error('Keep the journal outside the installed plugin');
+ if(!path.isAbsolute(inventoryPath||'')||inside(pluginRoot,path.resolve(inventoryPath)))throw Error('Fresh chat readiness inventory outside the plugin is required');
+ const readiness=requireChatReadiness(JSON.parse(await readFile(inventoryPath,'utf8')),{workflow:'organize-project',projectPath});
  await mkdir(directory,{recursive:true});
  directory=await realpath(directory);
  if(inside(await realpath(pluginRoot),directory))throw Error('Keep the journal outside the installed plugin');
@@ -52,7 +55,7 @@ export async function runSession(projectPath,directory) {
   ownsLock=true;
   try {await handle.writeFile(JSON.stringify({pid:process.pid,operationId,projectPath}));} finally {await handle.close();}
   checkPending(await ledger());
-  record={operationId,kind:'organize_project',projectPath,status:'dispatched',startedAt:now(),operations:Object.create(null)};
+  record={operationId,kind:'organize_project',projectPath,status:'dispatched',startedAt:now(),readiness:{...readiness,inventoryPath},operations:Object.create(null)};
   await persist();
   input=createInterface({input:process.stdin,crlfDelay:Infinity,terminal:false});
   process.on('SIGINT',interrupt);process.on('SIGTERM',interrupt);
@@ -99,7 +102,7 @@ export async function runSession(projectPath,directory) {
 
 if(process.argv[1] && path.resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
  const args=process.argv.slice(2);
- if(args.length===1 && args[0]==='--help')emit({usage:'node session.mjs /absolute/project.prproj /absolute/shared-journal',actions:['dispatch','verify','finish','fail'],scope:'Local writer lock and journal only; no Premiere inspection or mutations'});
- else if(args.length!==2) {emit({ok:false,error:'Expected project path and shared journal directory'});process.exitCode=1;}
+ if(args.length===1 && args[0]==='--help')emit({usage:'node session.mjs /absolute/project.prproj /absolute/shared-journal /absolute/chat-inventory.json',actions:['dispatch','verify','finish','fail'],scope:'Chat evidence gate, local writer lock and journal only; no Premiere inspection or mutations'});
+ else if(args.length!==3) {emit({ok:false,error:'Expected project path, shared journal directory and fresh chat inventory'});process.exitCode=1;}
  else runSession(...args).catch(error=>{emit({ok:false,error:error.message});process.exitCode=1;});
 }

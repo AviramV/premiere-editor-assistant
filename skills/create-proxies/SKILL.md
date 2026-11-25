@@ -5,6 +5,8 @@ description: Create, validate and attach editing proxies for local video media i
 
 Resolve the plugin root two directories above this skill folder. Use the shared runtime and executable discovery from setup; keep media, logs and receipts in the project's working directory outside the installed plugin. This workflow is shared by Codex and Claude Code and does not require transcription models. Read [encoding and verification](references/encoding.md) for the selected backend.
 
+Before Premiere writes, pass the shared [chat readiness gate](../setup/references/chat-readiness.md) for `create-proxies` with this chat's actual installed-plugin schemas, bindings and read-only project response. Files-only encoding and independent preparation need no Premiere gate. Missing commands must not be replaced with development connectors or raw scripting.
+
 ## Choice and defaults
 
 Inspect the scoped source items, attached proxy paths and file availability first. Reuse available attached proxies, regardless of their format, and enable and verify Premiere's proxy toggle before footage-dependent work. Missing files behind an attachment are unavailable proxies.

@@ -37,7 +37,7 @@ if(live&&verified) {
  try{maintenance=await maintainResources({apply:!process.argv.includes('--preview-cleanup'),panelPath});if(maintenance.migration?.blocked.length)process.exitCode=2;}
  catch(error){maintenance={status:'cleanup_pending',detail:redact(error.message)};process.exitCode=2;}
 }
-console.log(JSON.stringify({status:verified?'verified':'connection_check_failed',livePremiereConnectionVerified:live&&verified,codexConnectionsVerified:false,modelWeightsVerified:false,
+console.log(JSON.stringify({status:verified?'server_checks_passed_chat_pending':'connection_check_failed',verificationScope:'packaged_servers_only',chatReadiness:'not_verified',livePremiereConnectionVerified:live&&verified,codexConnectionsVerified:false,modelWeightsVerified:false,
  next:'This tests the packaged launchers directly using read-only checks. Reload Codex connections or restart Codex after startup changes, then verify both bridges from the chat.',results,maintenance},null,2));
 if(!verified)process.exitCode=1;
 }finally{await endUse();}

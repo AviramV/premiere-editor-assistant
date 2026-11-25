@@ -1,6 +1,6 @@
 # Premiere tool procedure
 
-Use the currently registered tool schemas as authority. The plugin registers the CEP backend as `premiere_cep`; its full MCP prefix depends on the host. Check `verify_premiere_connection({backend:"cep"})` and inspect `get_capabilities` for inspection, duplicate/rename, preview/apply, track deletion, in/out clearing, saving and OMF export. These schemas were checked against the packaged, pinned leancoder 1.21.0 runtime; this is not live OMF acceptance. A connection failure routes to the plugin's setup skill; do not silently switch bridges or bootstrap another runtime. No new server or unsafe-script permission is needed.
+Use the currently registered tool schemas as authority. The plugin registers the CEP backend as `premiere_cep`; its full MCP prefix depends on the host. Check `verify_premiere_connection({backend:"cep"})` and inspect `get_capabilities` for inspection, duplicate/rename, preview/apply, track deletion, in/out clearing, saving and OMF export. Recheck those schemas against the currently pinned runtime; historical schema inspection is not live OMF acceptance. A connection failure routes to the plugin's setup skill; do not silently switch bridges or bootstrap another runtime. No new server or unsafe-script permission is needed.
 
 ## Complete evidence
 
