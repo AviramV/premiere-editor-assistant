@@ -3,11 +3,12 @@ import {pathToFileURL} from 'node:url';
 import {root, runtimes, metadata, environment, beginUse, runtimeReady, endUse} from './common.mjs';
 import {readToolCatalog} from './tool-catalog.mjs';
 import {createCommandSurface} from './command-surface.mjs';
+import {resumeOnConnection} from './upgrade-maintenance.mjs';
 
 const backend = process.argv[2];
 if (!['premiere_cep', 'premiere_uxp'].includes(backend)) throw new Error('Unknown Premiere backend');
 await beginUse();
-let client;
+let client, stopMaintenance;
 try {
   await runtimeReady();
   const sdk = path.join(runtimes, 'quadlzzz/node_modules/@modelcontextprotocol/sdk/dist/esm');
@@ -38,8 +39,10 @@ try {
   process.once('SIGINT', finish);
   server.onclose = finish;
   await server.connect(new StdioServerTransport());
+  if (backend==='premiere_cep' && !process.env.PREMIERE_ASSISTANT_INTERNAL_CHECK)
+   stopMaintenance=resumeOnConnection();
   if (!process.stdin.readableEnded) await stopped;
   await server.close();
 } finally {
-  try { await client?.close(); } finally { await endUse(); }
+  try { await stopMaintenance?.(); await client?.close(); } finally { await endUse(); }
 }

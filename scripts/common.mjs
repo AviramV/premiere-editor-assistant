@@ -25,7 +25,7 @@ export function selectPreparedPython(file){preparedPython=file;}
 export {executable};
 export async function exists(file) { try { await access(file); return true; } catch { return false; } }
 export function environment() {
-  return {...process.env, PREMIERE_ASSISTANT_RUNTIME:runtimes, PREMIERE_ASSISTANT_DATA:location.directory,
+  return {...process.env, PREMIERE_ASSISTANT_INTERNAL_CHECK:'1', PREMIERE_ASSISTANT_RUNTIME:runtimes, PREMIERE_ASSISTANT_DATA:location.directory,
     PREMIERE_ASSISTANT_STATE:persistentState,
     PREMIERE_ASSISTANT_NODE:process.execPath,
     PREMIERE_ASSISTANT_PYTHON:process.env.PREMIERE_ASSISTANT_PYTHON || preparedPython || managedPython || (existsSync(path.join(location.directory,'python/bin/python'))?path.join(location.directory,'python/bin/python'):executable('python3')),

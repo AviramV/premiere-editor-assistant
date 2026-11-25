@@ -2,7 +2,7 @@
 
 A local Agent Plugins package for Adobe Premiere Pro on macOS, installable in Codex and Claude Code. It creates two editable sequences: **Takes**, containing usable takes and attempts, and **Selects**, containing the selected takes. Both include every independent part, put hooks first, and use matching colors for the same parts.
 
-Current release: **0.2.2**. See [CHANGELOG.md](CHANGELOG.md) for release notes. The plugin supports Project-panel organization, native transcript preparation, Selects derived from Takes, and OMF sound handoff.
+Current release: **0.2.3**. See [CHANGELOG.md](CHANGELOG.md) for release notes. The plugin supports Project-panel organization, native transcript preparation, Selects derived from Takes, and OMF sound handoff.
 
 ## Install from GitHub
 
@@ -27,9 +27,9 @@ Start a new Claude Code session after installation. In either agent, ask:
 
 > Set up Premiere Editor Assistant on this Mac.
 
-The repository includes the built workflow: no development build is required. To pin this release in Codex, add `--ref v0.2.2` to its marketplace command.
+The repository includes the built workflow: no development build is required. To pin this release in Codex, add `--ref v0.2.3` to its marketplace command.
 
-Alternatively, download the ZIP and its SHA-256 file from [Releases](https://github.com/AviramV/premiere-editor-assistant/releases), verify with `shasum -a 256 -c premiere-editor-assistant-0.2.2.zip.sha256`, unzip it into a permanent folder, and follow [INSTALL.md](INSTALL.md).
+Alternatively, download the ZIP and its SHA-256 file from [Releases](https://github.com/AviramV/premiere-editor-assistant/releases), verify with `shasum -a 256 -c premiere-editor-assistant-0.2.3.zip.sha256`, unzip it into a permanent folder, and follow [INSTALL.md](INSTALL.md).
 
 ## Requirements and setup
 
@@ -70,7 +70,7 @@ Ask **organize-project** to group Project-panel items into the numbered bins fro
 
 Ask the **export-omf** skill to export your chosen Premiere sequence to a destination folder. It uses the existing CEP bridge to prepare a separate audio-only working copy and preserves the source, Takes and Selects. Defaults are 48 kHz, 24-bit embedded WAV, trimmed media with five-second handles and pan information; explicit delivery specifications override them. Transcription models are not needed.
 
-The skill checks cleanup audio metadata and file checksums/container bounds. OMF's size, nesting, track-output and effects limitations are described in [the export procedure](skills/export-omf/references/procedure.md). These checks do not establish audio content, effect fidelity, listening quality or a successful Pro Tools import. Native OMF export and target-DAW acceptance remain unverified for this release.
+Codex and Claude Code exported embedded OMFs in a Premiere Pro 27 fixture. Target-DAW import remains unverified. See [the export procedure](skills/export-omf/references/procedure.md).
 
 ## Updates
 
@@ -87,7 +87,7 @@ claude plugin marketplace update premiere-editor-assistant-local
 claude plugin update premiere-editor-assistant@premiere-editor-assistant-local
 ```
 
-Restart the agent session after updating, then follow the shared setup and bridge checks in INSTALL.md. Compatible releases reuse shared bridge dependencies; Python environments have independent permanent paths. Successful live verification attempts conservative cleanup of unused managed dependencies while retaining active references and a healthy rollback. Use `scripts/launch.sh cleanup` for a preview. Verified obsolete 0.1.x support files can be retired after fresh panel/process checks; an initial legacy rollback, needed Python, project data, custom locations and agent-managed plugin caches are preserved; see [storage and cleanup](INSTALL.md#shared-dependencies-and-cleanup).
+Run the updated plugin’s setup. With Premiere, its matching panels and a project open, setup verifies both bridges and attempts cleanup. If verification is pending, the connected plugin retries automatically. The report lists the removed paths, their logical size and the reasons other files were kept. Both hosts protect their installed dependencies, configured Python, project records and rollback data. After setup retires the legacy Codex launcher entries, reload the connection. See [upgrade and recovery](INSTALL.md#upgrade-from-an-earlier-version).
 
 The catalog identifier remains `premiere-editor-assistant-local` for compatibility with the ZIP installation. A pinned Git ref stays pinned; change the ref to adopt a newer release.
 

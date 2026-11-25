@@ -1,4 +1,4 @@
-# Premiere Editor Assistant 0.2.2
+# Premiere Editor Assistant 0.2.3
 
 A local macOS plugin for editable Takes and Selects, with Project-panel organization and a separate OMF sound-handoff skill. English editorial input is validated; optional local transcription requires Apple Silicon. Premiere 26.3.2 was the original tested host.
 
@@ -55,13 +55,17 @@ Run the same setup command again after a recoverable failure. Downloads, npm dep
 
 Managed installations share checksum-verified archives in the store's `downloads/` directory and verified extraction/dependency checkpoints in `scratch/<runtime-id>/work`. Explicit custom runtime directories retain their existing download/checkpoint layout. Partial or changed scratch stages are rebuilt. A completed installed runtime is verified and reused. Setup preserves differing installed runtimes and existing CEP panels, along with all project journals. CCX generation uses a temporary file before replacing the generated installer, and a new CEP panel is fully copied and checked before installation.
 
-`setup-status.json` records the last stage/status; `setup-logs/` holds per-run diagnostic logs. Failure output gives the failed stage, attempts, retry command, log path and corrective action. Keep the same managed-mirror/network environment when copying a retry command. Exit code 1 means required setup failed; code 2 means the runtime is prepared with pending installer or optional-model steps. This is never a claim that Adobe panels or the agent's MCP connections are ready.
+`setup-status.json` records the last stage/status; `setup-logs/` holds per-run diagnostic logs. Failure output gives the failed stage, attempts, retry command, log path and corrective action. Keep the same managed-mirror/network environment when copying a retry command. Exit code 1 means required setup failed; code 2 means the runtime is prepared and the installer, optional models or live upgrade cleanup still need attention. Read the reported warnings and maintenance status. This is never a claim that Adobe panels or the agent's MCP connections are ready.
 
 Setup records process ownership and worker groups. A confirmed dead owner with no surviving workers can be recovered automatically. Active processes, unknown/legacy locks and an interrupted worker-spawn record stop recovery for inspection; setup never blindly clears an uncertain lock. This uses process liveness checks rather than a process-list command.
 
 If Creative Cloud cannot install the CCX, load the reported prepared manifest through Adobe UXP Developer Tool. If local Whisper fails, the prepared runtime remains available for Premiere-native transcription or an existing timed transcript; ElevenLabs (Scribe) requires separate authorization. No fallback uploads audio automatically. If connection reload is unavailable, restart your Codex or Claude Code session and verify both bridges from the chat. `smoke --live` retries recognized temporary connection failures up to three times using read-only calls, closes each attempt, and reports each bridge separately. Editorial mutations and paid transcription requests are outside these setup retries.
 
 ## Upgrade from an earlier version
+
+After the marketplace update, run the new package's setup. It attempts live verification and cleanup immediately. If Premiere, a matching panel or an open project is unavailable, setup prints `upgradeMaintenance.status: pending` and the reason. Open the project and both panels, then use a connected Codex or Claude Code Premiere session. The CEP connection retries pending maintenance on startup and every five minutes. Rerunning setup also requests an immediate check. The receipt path in the result leads to the latest status. When complete, its report lists removed paths, logical bytes removed and why other files were retained.
+
+Codex users who previously enabled the full-catalogue workaround may still have two explicit MCP entries pointing at an old version's launcher. For an enabled marketplace plugin, setup backs up and retires the exact generated pair. Reload the Codex connection to activate the bundled registrations. If setup reports `manual_review`, check those entries and their tool permissions before changing them. Both hosts use the same packaged launcher.
 
 Refresh the marketplace and update the plugin, then run this package's setup. Compatible releases reuse the same managed bridge runtime. Setup prepares the matching shared bridge and verifies any reusable legacy components. Compatible old Python environments are adopted in place when no explicit interpreter is configured. Historical cleanup follows verification; project journals keep their existing paths. Install and reload the generated UXP panel 0.2.1 when doctor reports a mismatch. It includes transcript import and a read-only report of its loaded folder, which historical cleanup requires. The Adobe panel has its own version; plugin-only updates can reuse an unchanged panel. External transcription configurations now require the exact Premiere project path, observed UXP source-item ID and the shared execution journal directory; see the edit-video workflow reference. Do not reuse or clear an uncertain operation to bypass reconciliation.
 
@@ -89,7 +93,7 @@ After external transcription, the workflow imports timed words onto the exact or
 
 Each project keeps its own inventory, transcript, operation journal and evidence outside the plugin and runtime store. Shared dependencies default to `~/Library/Application Support/Premiere Editor Assistant`; `PREMIERE_ASSISTANT_STORE` selects another absolute store for both agents. `PREMIERE_ASSISTANT_DATA` explicitly selects a custom bridge runtime directory. Custom executables can be provided through `PREMIERE_ASSISTANT_NODE`, `PREMIERE_ASSISTANT_PYTHON`, `PREMIERE_ASSISTANT_FFMPEG` and `PREMIERE_ASSISTANT_FFPROBE`. These are local settings, not values to put in a shared archive.
 
-For a sound handoff, ask export-omf to export your chosen sequence to a destination folder. It prepares a separate audio-only copy and defaults to 48 kHz, 24-bit embedded WAV with five-second handles. It uses the existing CEP bridge and Python standard library. Container checks and audio-metadata comparisons do not prove a successful Pro Tools import; live OMF acceptance remains separate.
+For a sound handoff, ask export-omf to export your chosen sequence to a destination folder. It prepares a separate audio-only copy and defaults to 48 kHz, 24-bit embedded WAV with five-second handles. It uses the existing CEP bridge and Python standard library. Both hosts exported an embedded OMF in the Premiere 27 fixture. Pro Tools import remains unverified.
 
 Footage, project files, credentials, caches and historical evaluation reports are excluded. No external account is configured automatically. See THIRD_PARTY.md for included and downloaded components.
 
@@ -108,7 +112,7 @@ After doctor and both read-only bridge checks succeed, `smoke --live` records th
 
 ## Migrate historical 0.1.x installations
 
-This release adds cleanup for the old version folders. The new runtime contains a checksum-protected baseline from its verified archives and locked dependencies. Cleanup removes only old support files matching that baseline or validated historical installer receipts. Edited files, unrecognized contents and project evidence remain at their original paths. Python environments stay in place; configured or adopted ones remain available to the new release.
+This release adds cleanup for the old version folders. The runtime and package supply checksum-verified inventories for the current and historical dependency locks, including the leancoder 1.21.0 installations. Cleanup removes only old support files matching that baseline or validated historical installer receipts. Edited files, unrecognized contents and project evidence remain at their original paths. Python environments stay in place; configured or adopted ones remain available to the new release.
 
 On the first successful upgrade, keep the newest verified old setup as a rollback. Once a healthy shared-runtime rollback exists, that final unreferenced historical setup can also be retired. A user upgrading only from 0.1.7 therefore keeps one initial backup; a user with many releases can reclaim the older duplicate support files immediately after verification. Active/pinned old host installations and intentional custom runtime locations keep their dependencies.
 

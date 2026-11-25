@@ -146,13 +146,16 @@ export async function referenceTargets(file) {
  }
  throw new Error('Too many symlinks in a protected reference');
 }
-export async function deletionInventory(directory,prefix='') {
+export async function deletionInventory(directory,prefix='',size) {
  const files=Object.create(null);
  for(const entry of await readdir(path.join(directory,prefix),{withFileTypes:true})) {
   const name=path.join(prefix,entry.name),file=path.join(directory,name);
   if(entry.isSymbolicLink())files[name]={symlink:await readlink(file)};
-  else if(entry.isDirectory()){files[name]={directory:true};Object.assign(files,await deletionInventory(directory,name));}
-  else if(entry.isFile())files[name]={sha256:digest(await readFile(file))};
+  else if(entry.isDirectory()){files[name]={directory:true};Object.assign(files,await deletionInventory(directory,name,size));}
+  else if(entry.isFile()){
+   const bytes=await readFile(file);files[name]={sha256:digest(bytes)};
+   if(size)size.bytes+=bytes.length;
+  }
   else throw new Error(`Unknown filesystem entry in cleanup resource: ${name}`);
  }
  return files;
@@ -164,7 +167,7 @@ export function remainingInventoryMatches(expected,remaining) {
 export async function cleanup({store,protectedPaths=[],apply=false,now=Date.now(),graceMs=7*86400000,cacheAgeMs=30*86400000,legacyPlanner}) {
  return withStoreLock(store,async()=>{
   const keep=new Set(protectedPaths.filter(Boolean).map(p=>absolute(p,'protected path'))),blocked=[],removed=[],candidates=[],preserved=[],staleLeases=[],recovered=[],retiredReferences=[];
-  const registrations=[];let hasHealthyRollback=false;
+  const registrations=[],changedInstallations=[];let hasHealthyRollback=false,removedBytes=0;
   const protectConfiguration=async directory=>{
    for(const name of ['python','node','ffmpeg','ffprobe']) {
     try{keep.add(absolute((await readFile(path.join(absolute(directory,'configuration'),name),'utf8')).trim(),'configured executable'));}
@@ -186,12 +189,21 @@ export async function cleanup({store,protectedPaths=[],apply=false,now=Date.now(
     const present=async release=>{
      try {
       const manifest=await json(path.join(absolute(release.pluginRoot,'plugin root'),'plugin.json'));
-      if(manifest.name!=='premiere-editor-assistant'||manifest.version!==release.version)throw new Error('Registered plugin identity changed');
+      if(manifest.name!=='premiere-editor-assistant')throw new Error('Registered plugin identity changed');
+      if(manifest.version!==release.version) {
+       // A checkout or marketplace directory can advance in place. Its last run still
+       // protects its dependencies until that package registers the new runtime.
+       if(release!==record.current || record.slot!==release.pluginRoot || installationSlot(release.pluginRoot)!==record.slot ||
+          !/^\d+\.\d+\.\d+$/.test(manifest.version))throw new Error('Registered plugin identity changed');
+       changedInstallations.push({path:record.slot,registeredVersion:release.version,manifestVersion:manifest.version});
+       if(apply && record.observedVersion!==manifest.version)
+        await atomicJson(path.join(store,'references',entry.name),{...record,observedVersion:manifest.version});
+      }
       return true;
      }catch(error){if(error.code==='ENOENT')return false;throw error;}
     };
     let installed=await present(record.current);
-    if(installed&&record.current.healthy&&record.previous?.healthy&&record.previous.version!==record.current.version) {
+    if(installed&&!changedInstallations.some(change=>change.path===record.slot)&&record.current.healthy&&record.previous?.healthy&&record.previous.version!==record.current.version) {
      const bridges=(record.previous.paths||[]).filter(p=>path.dirname(p)===path.join(store,'bridges')&&idPattern.test(path.basename(p)));
      let available=bridges.length>0;
      for(const directory of bridges)try{await owned(store,resource(store,'bridges',path.basename(directory)));}
@@ -283,15 +295,20 @@ export async function cleanup({store,protectedPaths=[],apply=false,now=Date.now(
     }else if(item.kind!=='legacy'&&item.path!==resource(store,item.kind,item.id).path)throw new Error('Unsafe interrupted resource cleanup');
     try{await lstat(destination);}catch(error){if(error.code==='ENOENT'){if(apply&&!blocked.length)await rm(receipt);continue;}throw error;}
     await ordinaryPath(item.entryType==='symlink'?path.dirname(destination):destination);
-    if(item.kind==='download'){if(digest(await readFile(destination))!==path.basename(item.path,'.zip'))throw new Error('Quarantined archive changed');}
-    else if(item.kind==='legacy')remainingInventoryMatches(record.inventory,await legacyTools.legacyItemInventory({...item,path:destination}));
-    else if(record.schema===1)await readOwnership(destination,item);
+    const size={bytes:0};
+    if(item.kind==='download'){
+     const bytes=await readFile(destination);
+     if(digest(bytes)!==path.basename(item.path,'.zip'))throw new Error('Quarantined archive changed');
+     size.bytes=bytes.length;
+    }
+    else if(item.kind==='legacy')remainingInventoryMatches(record.inventory,await legacyTools.legacyItemInventory({...item,path:destination},size));
+    else if(record.schema===1){await readOwnership(destination,item);await deletionInventory(destination,'',size);}
     else {
      if(!record.inventory?.[markerName]?.sha256)throw new Error('Quarantine receipt lacks original ownership evidence');
-     remainingInventoryMatches(record.inventory,await deletionInventory(destination));
+     remainingInventoryMatches(record.inventory,await deletionInventory(destination,'',size));
     }
     if(blocked.length||[...keep].some(p=>overlaps(p,destination)||item.kind==='legacy'&&overlaps(p,item.path))){preserved.push({path:destination,reason:'quarantined data is referenced or ownership is uncertain'});continue;}
-    if(apply){await rm(destination,{recursive:true});await rm(receipt);recovered.push(destination);}
+    if(apply){await rm(destination,{recursive:true});await rm(receipt);removedBytes+=size.bytes;recovered.push(destination);}
     else candidates.push({kind:'quarantine',path:destination,receipt});
    }catch(error){preserved.push({path:destination,reason:error.message});}
   }
@@ -302,21 +319,23 @@ export async function cleanup({store,protectedPaths=[],apply=false,now=Date.now(
    await safeDirectory(trash);
    const token=randomUUID(),receipt=path.join(trash,token+'.json');
    const destination=item.kind==='legacy'?path.join(path.dirname(item.legacyRoot),'.premiere-assistant-migration-trash',token):path.join(trash,token);
+   const size={bytes:0};
    let inventory;
    if(item.kind==='legacy') {
     await legacyTools.validateLegacyItem(store,item);await ordinaryPath(item.entryType==='symlink'?path.dirname(item.path):item.path);
-    inventory=await legacyTools.legacyItemInventory(item);
+    inventory=await legacyTools.legacyItemInventory(item,size);
     if(legacyTools.legacyInventoryHash(inventory)!==item.inventoryHash){preserved.push({path:item.path,reason:'Historical files changed after preview'});continue;}
     await safeDirectory(path.dirname(destination));
-   }else inventory=item.kind==='download'?undefined:await deletionInventory(item.path);
+   }else if(item.kind==='download')size.bytes=(await lstat(item.path)).size;
+   else inventory=await deletionInventory(item.path,'',size);
    await atomicJson(receipt,{schema:item.kind==='legacy'?3:2,item,createdAt:now,inventory,...(item.kind==='legacy'?{quarantinePath:destination}:{})});
-   await rename(item.path,destination);await rm(destination,{recursive:true});await rm(receipt);removed.push(item.path);removedItems.push(item);
+   await rename(item.path,destination);await rm(destination,{recursive:true});await rm(receipt);removed.push(item.path);removedBytes+=size.bytes;removedItems.push(item);
   }
   if(apply&&legacyReady&&!migration.blocked.length)await migration.afterApply?.(removedItems);
   if(apply&&!blocked.length)for(const file of staleLeases)await rm(file,{force:true});
   const legacy=(await entries(store)).filter(e=>e.isDirectory()&&/^\d+\.\d+\.\d+$/.test(e.name)).map(e=>({path:path.join(store,e.name),reason:legacyPlanner?'remaining historical contents retained by migration policy':'legacy installation; preserved in place'}));
   const migrationReport=migration?Object.fromEntries(Object.entries(migration).filter(([,value])=>typeof value!=='function')):undefined;
-  return {mode:apply?'apply':'preview',store,candidates,preserved,legacy,blocked,removed,recovered,staleLeases,retiredReferences,migration:migrationReport};
+  return {mode:apply?'apply':'preview',store,candidates,preserved,legacy,blocked,removed,removedBytes,changedInstallations,recovered,staleLeases,retiredReferences,migration:migrationReport};
  });
 }
 export async function legacyCandidates(store,registration) {

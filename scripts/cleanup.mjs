@@ -14,6 +14,6 @@ if(args.length===1&&args[0]==='--help') {
    panelPath=await probePanelLocation();if(panelPath){selectLivePanelPath(panelPath);await recordRelease();}
   }
   const result=await maintainResources({apply:args.includes('--apply'),panelPath});console.log(JSON.stringify(result,null,2));
-  if(result.migration?.blocked.length)process.exitCode=2;
+  if(result.blocked.length||result.migration?.blocked.length)process.exitCode=2;
  }finally{await endUse();}
 }

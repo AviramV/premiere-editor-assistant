@@ -1,13 +1,15 @@
 import path from 'node:path';
 import {homedir} from 'node:os';
 import {mkdir} from 'node:fs/promises';
-import {root,state,location,runtimes,run,environment,executable,runtimeReady,bridgePatchHash,observeSetupProcesses,beginUse,endUse,holdPath,recordRelease,migrationCandidates,selectPreparedPython,exists,watchProcesses} from './common.mjs';
+import {root,state,metadata,location,runtimes,run,environment,executable,runtimeReady,bridgePatchHash,observeSetupProcesses,beginUse,endUse,holdPath,recordRelease,migrationCandidates,selectPreparedPython,exists,watchProcesses} from './common.mjs';
 import {acquireSetupLock,createReport,redact} from './setup-recovery.mjs';
 import {registerRuntime} from './runtime-location.mjs';
 import {provisionRuntime,prepareInstaller,installCep} from './setup-runtime.mjs';
 import {resource,markResource,adoptBridge,managedPath,safeDirectory} from './lifecycle.mjs';
 import {prepareModels,adoptLegacyModels} from './models.mjs';
 import {settingsDirectory} from './settings.mjs';
+
+import {checkInstalledUpgrade,upgradeReceipt} from './upgrade-maintenance.mjs';
 
 const flags=new Set(process.argv.slice(2));
 if([...flags].some(f=>!['--local-models','--install-cep','--help'].includes(f)))throw new Error('Usage: setup.mjs [--local-models] [--install-cep]');
@@ -64,7 +66,24 @@ try {
   localModels:models,warnings:[installerWarning,modelWarning].filter(Boolean),
   livePremiereConnectionVerified:false,codexConnectionsVerified:false,modelWeightsVerified:false,retryCommand,
   next:'Install the CCX through Adobe Creative Cloud, or load the prepared manifest in Adobe UXP Developer Tool. Open both panels and a project, then run doctor and smoke --live. After startup changes reload Codex connections or restart Codex and verify both bridges from the chat.'};
- if(modelWarning||installerWarning)process.exitCode=2;
+ try {
+  result.codexRegistration=JSON.parse(await run(python,[path.join(root,'scripts/codex-registration.py'),root]));
+ }catch(error){result.codexRegistration={status:'manual_review',detail:redact(error.message)};}
+ try {
+  result.upgradeMaintenance=await checkInstalledUpgrade(true);
+ }catch(error){
+  result.upgradeMaintenance={status:'pending',file:upgradeReceipt(state,metadata.version),reason:redact(error.message)};
+ }
+ result.livePremiereConnectionVerified=result.upgradeMaintenance.livePremiereConnectionVerified===true;
+ if(result.upgradeMaintenance.status==='pending'){
+  result.status='runtime_ready_with_pending_steps';
+  result.next=result.livePremiereConnectionVerified
+   ? 'Both bridges answered. See upgradeMaintenance for the cleanup blocker and retry status.'
+   : 'Installation prepared. Resolve the reported verification issue and open the matching panels and a project. The connected plugin retries pending cleanup.';
+ }else{
+  result.next='Upgrade cleanup completed. Verify tool availability in the agent chat after a connection reload.';
+ }
+ if(modelWarning||installerWarning||result.upgradeMaintenance.status!=='complete')process.exitCode=2;
 }catch(error) {
  process.exitCode=1;
  result={status:'setup_failed',stage:error.stage||report?.stage||'preflight',attempts:error.attempts||Math.max(report?.attempt||0,1),detail:redact(error.message),

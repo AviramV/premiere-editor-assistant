@@ -2,6 +2,7 @@ import path from 'node:path';
 import {readFile,mkdir,cp,readdir,lstat,rename,rm,rmdir} from 'node:fs/promises';
 import {homedir} from 'node:os';
 import {execFile} from 'node:child_process';
+import {gunzipSync} from 'node:zlib';
 import {promisify} from 'node:util';
 import {absolute,digest,ordinaryPath,safeDirectory,overlaps,referenceTargets,deletionInventory} from './lifecycle.mjs';
 import {treeDigest,atomicJson} from './setup-recovery.mjs';
@@ -25,6 +26,9 @@ export async function readLegacyBaseline(runtimes) {
  if(!marker.files?.['legacy-baseline.json']||digest(await readFile(file))!==marker.files['legacy-baseline.json'])throw new Error('Verified historical cleanup baseline is unavailable; rerun the current setup');
  const baseline=await json(file);
  if(baseline.schema!==1||baseline.lockSha256!==marker.lockSha256)throw new Error('Historical cleanup baseline differs from the installed runtime');
+ return validateBaseline(baseline);
+}
+function validateBaseline(baseline) {
  for(const key of ['leancoder','quadSource','quadDependencies','cep'])validateMap(baseline[key]);
  if(!hashPattern.test(baseline.license)||!Object.values(baseline.archives||{}).every(v=>hashPattern.test(v)))throw new Error('Invalid historical baseline');
  return baseline;
@@ -150,7 +154,21 @@ function directoryPrefixes(files) {
  const prefixes=new Set();for(const name of Object.keys(files)){let parent=path.dirname(name);while(parent!=='.'){prefixes.add(parent);parent=path.dirname(parent);}}
  return prefixes;
 }
-async function checkedRoot({store,directory,baseline}) {
+// This catalogue is distributed with the plugin, independent of the installed bridge.
+const oldLock='3b343f7755c03981a514c922bf7cc26e3ca993706b65e4c7cce7f81fde213ed2';
+async function historicalBaseline(lock, baselines) {
+ if (baselines.has(lock)) return baselines.get(lock);
+ if (lock !== oldLock) throw new Error('Unsupported historical runtime pins');
+ const packed=await readFile(new URL('../baselines/'+oldLock+'.json.gz',import.meta.url));
+ const raw=gunzipSync(packed);
+ if (digest(raw)!=='797fc079038486d102e3a10019a141d8fa60087b0c9e7ff4287c9e66d0c5dbf0') throw new Error('Historical baseline checksum mismatch');
+ const baseline=validateBaseline(JSON.parse(raw));
+ if (baseline.schema!==1 || baseline.lockSha256!==lock) throw new Error('Historical baseline identity mismatch');
+ baselines.set(lock,baseline);
+ return baseline;
+}
+
+async function checkedRoot({store,directory,baselines}) {
  await ordinaryPath(directory);
  const previous=await savedRoot(store,directory),markerFile=path.join(directory,'integrations/installation.json');
  await ordinaryPath(markerFile,true);
@@ -158,9 +176,10 @@ async function checkedRoot({store,directory,baseline}) {
  try{markerBytes=await readFile(markerFile);marker=JSON.parse(markerBytes);}catch(error){if(error.code!=='ENOENT'||!previous?.sourceMarker)throw error;marker=previous.sourceMarker;}
  if(previous&&markerBytes&&previous.markerSha256!==digest(markerBytes))throw new Error('Historical installation changed after migration began');
  if(Object.keys(marker).some(key=>!['lockSha256','patchSha256','files'].includes(key)))throw new Error('Unknown historical runtime metadata');
+ const baseline=await historicalBaseline(marker.lockSha256,baselines);
  const runtime=legacyRuntimeFiles(baseline,marker);
  let intact=true;for(const [name,expected] of Object.entries(marker.files))try{if(digest(await readFile(path.join(directory,'integrations',name)))!==expected)intact=false;}catch(error){if(error.code==='ENOENT')intact=false;else throw error;}
- return {path:directory,version:path.basename(directory),marker,markerSha256:markerBytes?digest(markerBytes):previous.markerSha256,runtime,previous,intact};
+ return {path:directory,version:path.basename(directory),marker,markerSha256:markerBytes?digest(markerBytes):previous.markerSha256,runtime,baseline,previous,intact};
 }
 async function archiveFile({store,root,relative,source,inventory,apply}) {
  const destination=path.join(store,'migration-history',root.version,digest(root.path).slice(0,16),relative);
@@ -187,10 +206,14 @@ export async function validateLegacyItem(store,item) {
  if(!authorization||authorization.path!==item.path||authorization.inventoryHash!==item.inventoryHash||authorization.entryType!==item.entryType)throw new Error('Historical cleanup authorization differs');
  return true;
 }
-export async function legacyItemInventory(item) {
+export async function legacyItemInventory(item,size) {
  const info=await lstat(item.path);
- if(item.entryType==='directory'&&info.isDirectory()&&!info.isSymbolicLink())return deletionInventory(item.path);
- if(item.entryType==='file'&&info.isFile())return {'.':{sha256:digest(await readFile(item.path))}};
+ if(item.entryType==='directory'&&info.isDirectory()&&!info.isSymbolicLink())return deletionInventory(item.path,'',size);
+ if(item.entryType==='file'&&info.isFile()){
+  const bytes=await readFile(item.path);
+  if(size)size.bytes+=bytes.length;
+  return {'.':{sha256:digest(bytes)}};
+ }
  if(item.entryType==='symlink'&&info.isSymbolicLink()){const {readlink}=await import('node:fs/promises');return {'.':{symlink:await readlink(item.path)}};}
  throw new Error('Historical cleanup entry type changed');
 }
@@ -298,6 +321,7 @@ export function legacyMigrationPlanner({store,runtimes,root:pluginRoot,configura
   const result={checked:false,candidates:[],preserved:[],blocked:[],roots:[],rollback:null};
   try {
    const baseline=await readLegacyBaseline(runtimes);
+   const baselines=new Map([[baseline.lockSha256,baseline]]);
    const roots=await discoverLegacyRoots({store,home,registrations:context.registrations});result.roots=roots;
    if(!roots.length){result.checked=true;return result;}
    for(const directory of roots)await ordinaryPath(directory,true);
@@ -320,7 +344,7 @@ export function legacyMigrationPlanner({store,runtimes,root:pluginRoot,configura
     try {
      const info=await lstat(directory);if(!info.isDirectory()||info.isSymbolicLink())throw new Error('Historical root is not an ordinary directory');
      if((await entries(directory)).some(entry=>['setup.lock','setup-recovery.lock'].includes(entry.name)))throw new Error('An old setup lock needs reconciliation');
-     checked.push(await checkedRoot({store,directory,baseline}));
+     checked.push(await checkedRoot({store,directory,baselines}));
     }catch(error){result.preserved.push({path:directory,reason:error.message});}
    }
    if(!context.hasHealthyRollback&&checked.some(root=>root.intact)) {
@@ -329,7 +353,7 @@ export function legacyMigrationPlanner({store,runtimes,root:pluginRoot,configura
    const inspectArchive=async file=>JSON.parse(await run(python,[path.join(pluginRoot,'scripts/archive-inventory.py'),file],{timeout:30000}));
    for(const legacy of checked) {
     if([...context.keep].some(p=>p===legacy.path||legacy.path.startsWith(p+path.sep))){result.preserved.push({path:legacy.path,reason:legacy.path===result.rollback?'prior installation retained for rollback':'installed, pinned, configured or in use'});continue;}
-    const plan=await rootCandidates({store,root:legacy,baseline,keep:context.keep,apply:context.apply,inspectArchive});result.candidates.push(...plan.candidates);result.preserved.push(...plan.preserved);
+    const plan=await rootCandidates({store,root:legacy,baseline:legacy.baseline,keep:context.keep,apply:context.apply,inspectArchive});result.candidates.push(...plan.candidates);result.preserved.push(...plan.preserved);
    }
    result.checked=true;
    result.beforeApply=async()=>{

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.3
+
+After installation, setup attempts live Premiere verification and cleanup. If the panels or project are unavailable, it records the reason and retries from a connected CEP session. A completed sweep reports the logical file bytes removed and retains a detailed inventory.
+
+Recognize the historical 0.1.x dependency lock after bridge updates. Preserve configured Python, old releases still installed in either host, project evidence, modified files and the verified rollback. A development checkout can advance in place while its last registered dependencies stay protected. Known uncustomized Codex launcher overrides from the old discovery workaround are backed up and retired when the bundled plugin is enabled. Customized settings remain available for manual review.
+
+Packaged acceptance covered a pending installation resuming through a normal MCP connection, both host cache layouts, and copies of seven historical support folders. The first historical cleanup pass removed about 274 MiB in the fixture and kept pinned dependencies, Python and project evidence. The acceptance used local panel protocol fixtures and controlled process ownership.
+
 ## 0.2.2
 
 Add complete MCP catalogue inspection and comparison with actual chat bindings. Native workflow readiness checks require fresh schemas, callable commands and exact-project read-only evidence. The organizer refuses to start its writer journal when this evidence is incomplete, and server smoke checks explicitly leave chat adoption pending.
